@@ -5,18 +5,31 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const q = (searchParams.get('q') ?? '').trim().toLowerCase();
 
-  // Get top tags (distinct with counts)
-  const rows = await prisma.$queryRaw<Array<{ tag: string; cnt: bigint }>>`
-    SELECT t.tag, COUNT(*)::bigint AS cnt
-    FROM (
-      SELECT UNNEST("tags") AS tag
-      FROM "TrendRecord"
-    ) t
-    WHERE (${q === ''} OR LOWER(t.tag) LIKE ${'%' + q + '%'})
-    GROUP BY t.tag
-    ORDER BY cnt DESC
-    LIMIT 50
-  `;
+  // Get all tags and process them in JavaScript since SQLite doesn't have good string splitting
+  const allRecords = await prisma.trendRecord.findMany({
+    select: { tags: true }
+  });
+
+  // Process tags in JavaScript
+  const tagCounts = new Map<string, number>();
+  
+  for (const record of allRecords) {
+    if (record.tags) {
+      const tags = record.tags.split(',').map(t => t.trim()).filter(t => t.length > 0);
+      for (const tag of tags) {
+        const lowerTag = tag.toLowerCase();
+        if (q === '' || lowerTag.includes(q.toLowerCase())) {
+          tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
+        }
+      }
+    }
+  }
+
+  // Convert to array and sort by count
+  const rows = Array.from(tagCounts.entries())
+    .map(([tag, count]) => ({ tag, cnt: BigInt(count) }))
+    .sort((a, b) => Number(b.cnt) - Number(a.cnt))
+    .slice(0, 50);
 
   return NextResponse.json({
     tags: rows.map(r => ({ tag: r.tag, count: Number(r.cnt) }))
