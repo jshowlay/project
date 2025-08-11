@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
     if (source) where.source = source;
     if (region) where.region = region;
     if (since) where.observedAt = { gte: since };
-    if (q) where.topic = { contains: q, mode: 'insensitive' };
+                    if (q) where.topic = { contains: q };
 
     const [items, total] = await Promise.all([
       prisma.trendRecord.findMany({
