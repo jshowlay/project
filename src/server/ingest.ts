@@ -34,6 +34,7 @@ export async function ingestAll() {
           inserted++;
         } catch (e:any) {
           // ignore duplicates (if any unique constraints later), log others
+          console.warn(`Insert failed for topic "${it.topic}":`, e.message);
           if (process.env.NODE_ENV !== 'production') log.warn({ err: e, topic: it.topic }, 'insert failed');
         }
       }
