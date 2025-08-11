@@ -17,7 +17,12 @@ export const newsapiAdapter: Adapter = {
       try {
         const url = `https://newsapi.org/v2/top-headlines?country=us&category=${category}&pageSize=20`;
         console.log(`Fetching ${category} news from: ${url}`);
-        const { body } = await request(url, { headers: { 'X-Api-Key': key } });
+        const { body } = await request(url, { 
+          headers: { 
+            'X-Api-Key': key,
+            'User-Agent': 'TrenderAI/1.0 (trenderai.com)'
+          } 
+        });
         const json = await body.json() as any;
         
         if (json.status === 'error') {
