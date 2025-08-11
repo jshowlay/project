@@ -125,6 +125,14 @@ Examples:
   - `score:` and `delta24h:` offer quick comparators like `>70`, `<20`, etc.
 - Keyboard: ↑/↓ to move, Enter/Tab to apply, Esc to close. Click to select as well.
 
+## Recent Searches (per browser)
+- The dashboard saves up to 15 recent queries (operators + text) in `localStorage`.
+- Dedupe is case/whitespace-insensitive; newest wins.
+- Click any chip to re-run it instantly.
+- Click ★ to pin/unpin; pinned items float to the top.
+- Remove a single item with ✕, or **Clear history** to wipe all.
+- History is stored locally in your browser and does not sync across devices.
+
 ### Protected Endpoints
 - `POST /api/ingest` - Trigger data ingestion (requires `Authorization: Bearer $CRON_SECRET`)
 

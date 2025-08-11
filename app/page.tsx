@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { parseQueryDetailed, QueryToken } from '@/search/query';
 import SearchSuggest from '@/components/SearchSuggest';
+import { getRecents, saveRecent, removeRecent, clearRecents, togglePin, RecentSearch } from '@/search/recent';
 
 type Item = {
   id: string; source: string; topic: string; score: number; delta24h?: number | null;
@@ -27,17 +28,48 @@ function Chip({ label, onRemove }: { label: string; onRemove: () => void }) {
   );
 }
 
+function RecentChip({ r, onRun, onPin, onRemove }:{
+  r: RecentSearch;
+  onRun: (q:string)=>void; onPin:(id:string)=>void; onRemove:(id:string)=>void;
+}) {
+  return (
+    <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm"
+      style={{ background:'#101010', border:'1px solid #222', color:'#fff' }}>
+      <button onClick={()=>onRun(r.query)} className="truncate max-w-[14rem] text-left">
+        {r.query}
+      </button>
+      <button
+        title={r.pinned ? 'Unpin' : 'Pin'}
+        onClick={()=>onPin(r.id)}
+        className="rounded-full px-2"
+        style={{ background:'#1a1a1a', color: r.pinned ? '#e5c35a' : '#aaa' }}
+      >
+        ★
+      </button>
+      <button
+        title="Remove"
+        onClick={()=>onRemove(r.id)}
+        className="rounded-full px-2"
+        style={{ background:'#1a1a1a', color:'#e5c35a' }}
+      >
+        ✕
+      </button>
+    </span>
+  );
+}
+
 export default function Page() {
   const [items, setItems] = useState<Item[]>([]);
   const [q, setQ] = useState('');
   const [uiSource, setUiSource] = useState('');
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
+  const [recents, setRecents] = useState<RecentSearch[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const { parsed, tokens } = parseQueryDetailed(q);
 
-  async function load(nextPage = 1) {
+  async function load(nextPage = 1, opts?: { commit?: boolean }) {
     setLoading(true);
     const params = new URLSearchParams();
     if (q.trim()) params.set('q', q.trim());
@@ -49,18 +81,27 @@ export default function Page() {
     setItems(data.items ?? []);
     setPage(nextPage);
     setLoading(false);
+
+    // Save to recents only on explicit commit (Enter/Search button) and non-empty q
+    if (opts?.commit && q.trim().length >= 2) {
+      setRecents(saveRecent(q));
+    }
   }
 
-  // Debounce q + uiSource
+  // Debounce q + uiSource for background search (without saving history)
   const debounce = useRef<number | null>(null);
   useEffect(() => {
     if (debounce.current) window.clearTimeout(debounce.current);
-    debounce.current = window.setTimeout(() => load(1), 300);
+    debounce.current = window.setTimeout(() => load(1, { commit: false }), 300);
     return () => { if (debounce.current) window.clearTimeout(debounce.current); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q, uiSource]);
 
-  useEffect(() => { load(1); }, []); // initial load
+  useEffect(() => {
+    // initial load & pull recents
+    setRecents(getRecents());
+    load(1, { commit: false });
+  }, []);
 
   function removeToken(t: QueryToken) {
     const before = q.slice(0, t.start);
@@ -76,13 +117,20 @@ export default function Page() {
     inputRef.current?.focus();
   }
 
+  function commitSearch() {
+    // Called on Enter key or Search button
+    load(1, { commit: true });
+  }
+
+  function runRecent(query: string) {
+    setQ(query);
+    inputRef.current?.focus();
+    load(1, { commit: false }); // do not double-save; user can press Enter if they want it bumped
+  }
+
   // Keyboard navigation into the suggestion list: handle up/down/enter/esc by proxy via custom events
   function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    // Pass-through; our SearchSuggest handles keyboard by mouse interactions & selection on click.
-    // You can extend with a custom event bus if needed.
-    if (e.key === 'Escape') {
-      // noop: SearchSuggest closes on outside click; leaving here for future extension.
-    }
+    if (e.key === 'Enter') commitSearch();
   }
 
   return (
@@ -116,7 +164,7 @@ export default function Page() {
                 <option value="coingecko">CoinGecko</option>
                 <option value="alphavantage">Alpha Vantage</option>
               </select>
-              <button onClick={()=>load(1)} className="px-4 py-2 rounded-xl font-medium" style={{ background:'#e5c35a', color:'#000' }}>
+              <button onClick={commitSearch} className="px-4 py-2 rounded-xl font-medium" style={{ background:'#e5c35a', color:'#000' }}>
                 {loading ? 'Loading…' : 'Search'}
               </button>
             </div>
@@ -130,7 +178,7 @@ export default function Page() {
           </div>
         </div>
 
-        {/* Active operator chips */}
+        {/* Operator chips */}
         <div className="mt-3 flex flex-wrap gap-2">
           {/* Chips from typed operators */}
           {tokens.map((t: QueryToken, idx: number) => {
@@ -156,6 +204,37 @@ export default function Page() {
             >
               Clear all
             </button>
+          )}
+        </div>
+
+        {/* Recent searches row */}
+        <div className="mt-5">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-sm uppercase tracking-wide" style={{ color:'#e5c35a' }}>Recent searches</h2>
+            {recents.length > 0 && (
+              <button
+                onClick={() => { if (confirm('Clear all recent searches?')) { clearRecents(); setRecents([]); } }}
+                className="text-sm underline"
+                style={{ color:'#e5c35a' }}
+              >
+                Clear history
+              </button>
+            )}
+          </div>
+          {recents.length === 0 ? (
+            <div className="text-sm opacity-70">Your recent searches will appear here.</div>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {recents.map(r => (
+                <RecentChip
+                  key={r.id}
+                  r={r}
+                  onRun={runRecent}
+                  onPin={(id)=> setRecents(togglePin(id))}
+                  onRemove={(id)=> setRecents(removeRecent(id))}
+                />
+              ))}
+            </div>
           )}
         </div>
 
