@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 
 type Item = {
   id:string; source:string; topic:string; score:number; delta24h?:number|null;
-  url?:string|null; region?:string|null; tags?:string[]; observedAt:string;
+  url?:string|null; region?:string|null; tags?:string; observedAt:string;
 };
 
 export default function Page() {
@@ -68,8 +68,8 @@ export default function Page() {
               <div className="mt-1 text-sm opacity-80">Observed: {new Date(it.observedAt).toLocaleString()}</div>
               {it.delta24h!=null && <div className="mt-1 text-sm">Δ24h: {it.delta24h!.toFixed(2)}%</div>}
               <div className="mt-3 flex flex-wrap gap-2">
-                {(it.tags??[]).slice(0,5).map(tag=>(
-                  <span key={tag} className="text-xs px-2 py-1 rounded-full" style={{ background:'#222' }}>#{tag}</span>
+                {(it.tags ? it.tags.split(',').slice(0,5) : []).map(tag=>(
+                  <span key={tag} className="text-xs px-2 py-1 rounded-full" style={{ background:'#222' }}>#{tag.trim()}</span>
                 ))}
               </div>
               {it.url && <a href={it.url} target="_blank" className="mt-3 inline-block underline" style={{ color:'#e5c35a' }}>Open</a>}
