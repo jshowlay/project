@@ -9,7 +9,7 @@ interface CopyButtonProps {
   text: string;
   label?: string;
   variant?: 'default' | 'ghost' | 'outline';
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'sm' | 'default' | 'lg';
   className?: string;
 }
 
@@ -47,10 +47,18 @@ export function CopyButton({
     }
   };
 
+  const getButtonSize = () => {
+    switch (size) {
+      case 'sm': return 'sm';
+      case 'lg': return 'lg';
+      default: return 'default';
+    }
+  };
+
   return (
     <Button
       variant={variant}
-      size={size}
+      size={getButtonSize()}
       onClick={handleCopy}
       className={`${getSizeClasses()} text-golden hover:text-golden/80 hover:bg-golden/10 ${className}`}
       title={`${label} to clipboard`}

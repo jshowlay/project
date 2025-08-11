@@ -25,8 +25,8 @@ export async function ingestAll() {
               delta24h: it.delta24h ?? null,
               url: it.url ?? null,
               region: it.region ?? null,
-              tags: it.tags ?? [],
-              raw: it.raw as any,
+              tags: (it.tags ?? []).join(','),
+              raw: it.raw ? JSON.stringify(it.raw) : null,
               observedAt: it.observedAt ?? new Date(),
               language: it.language ?? null
             }

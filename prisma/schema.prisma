@@ -2,20 +2,20 @@ generator client {
   provider = "prisma-client-js"
 }
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 model TrendRecord {
   id          String   @id @default(cuid())
-  source      String   @db.VarChar(32)
+  source      String
   topic       String
   score       Float
   delta24h    Float?
   url         String?
   region      String?
-  tags        String[] @db.Text
-  raw         Json?
-  observedAt  DateTime @db.Timestamptz(6)
+  tags        String
+  raw         String?
+  observedAt  DateTime
   language    String?
   createdAt   DateTime @default(now())
   @@index([source, observedAt])
