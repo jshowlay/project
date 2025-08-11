@@ -49,7 +49,7 @@ export const newsapiAdapter: Adapter = {
     const norm = normalizeTo100(rawScores);
     
     const result = allArticles.map((a:any, i:number)=>({
-      source: 'newsapi',
+      source: 'newsapi' as const,
       topic: String(a.title ?? '').slice(0,280),
       score: clamp(norm[i]),
       delta24h: null,

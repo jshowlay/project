@@ -22,7 +22,7 @@ export const youtubeAdapter: Adapter = {
     const norm = normalizeTo100(rawScores);
     vids.forEach((v:any, i:number) => {
       items.push({
-        source: 'youtube',
+        source: 'youtube' as const,
         topic: String(v?.snippet?.title ?? '').slice(0, 280),
         score: clamp(norm[i]),
         delta24h: null,

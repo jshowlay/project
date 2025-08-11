@@ -60,7 +60,7 @@ export default function Page() {
             value={q}
             onChange={(e)=>setQ(e.target.value)}
             onKeyDown={(e)=>{ if (e.key === 'Enter') load(1); }}
-            placeholder="Search (e.g., ai agents OR robotics -crypto)…"
+            placeholder="Search (e.g., ai agents OR robotics -crypto, tag:crypto source:reddit since:7d sort:score)…"
             className="px-3 py-2 rounded-xl text-black w-full"
           />
           <select value={source} onChange={(e)=>setSource(e.target.value)} className="px-3 py-2 rounded-xl text-black">

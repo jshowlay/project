@@ -35,7 +35,7 @@ export const redditAdapter: Adapter = {
       const norm = normalizeTo100(rawScores);
       posts.forEach((p:any, i:number) => {
         items.push({
-          source: 'reddit',
+          source: 'reddit' as const,
           topic: String(p.title ?? '').slice(0, 280),
           score: clamp(norm[i]),
           delta24h: null,

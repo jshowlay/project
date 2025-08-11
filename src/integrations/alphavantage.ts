@@ -32,7 +32,7 @@ export const alphavantageAdapter: Adapter = {
         const p2 = Number(series[d2]['4. close'] ?? series[d2]['4b. close (USD)']);
         const delta = ((p2 - p1) / p1) * 100;
         items.push({
-          source: 'alphavantage',
+          source: 'alphavantage' as const,
           topic: sym,
           score: clamp(Math.abs(delta)*5), // amplify volatility to 0..100
           delta24h: delta,

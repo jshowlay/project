@@ -12,7 +12,7 @@ export const coingeckoAdapter: Adapter = {
     const rawScores = coins.map((c:any)=> safeNumber(c.score));
     const norm = normalizeTo100(rawScores);
     return coins.map((c:any, i:number)=>({
-      source: 'coingecko',
+      source: 'coingecko' as const,
       topic: `${c.name} (${c.symbol})`,
       score: clamp(norm[i]),
       delta24h: null,

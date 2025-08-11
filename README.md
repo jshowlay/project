@@ -91,6 +91,24 @@ Visit `http://localhost:3000` for the dashboard.
    curl -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/ingest
    ```
 
+## Query Operators
+Alongside free-text, you can add operators inside `q`:
+
+- `tag:<value>` — match any tag (case-insensitive). Example: `tag:ai`, `tag:"gen ai"`.
+- `source:<id>` — one or more sources. Example: `source:reddit source:youtube`.
+- `region:<ISO>` — region code (e.g., `region:US`).
+- `since:<date|rel>` — filter by observedAt >= value. ISO `YYYY-MM-DD` or relative: `24h`, `7d`, `2w`, `3m`.
+- `until:<date|rel>` / `before:<date|rel>` — observedAt <= value.
+- `score:>N` `score:<N` — filter by normalized score (0–100).
+- `delta24h:>N` `delta24h:<N` — filter by 24h change where available (stocks/crypto).
+- `sort:rank|score|recency` — default is `rank` when there's text, otherwise `recency`.
+
+Examples:
+- `ai agents OR robotics -crypto sort:rank`
+- `tag:crypto source:coingecko since:7d sort:score`
+- `NVDA source:alphavantage score:>60`
+- `"founder stories" source:reddit region:US since:2025-08-01`
+
 ### Protected Endpoints
 - `POST /api/ingest` - Trigger data ingestion (requires `Authorization: Bearer $CRON_SECRET`)
 
