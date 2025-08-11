@@ -109,6 +109,11 @@ Examples:
 - `NVDA source:alphavantage score:>60`
 - `"founder stories" source:reddit region:US since:2025-08-01`
 
+## Operator Chips
+- When you type operators in the search (e.g., `tag:ai source:reddit since:7d sort:score`), chips render under the input.
+- Click ✕ on any chip to remove that operator from the query; the search updates automatically.
+- The Source dropdown (right of the input) also shows as a chip. Removing it clears the dropdown filter.
+
 ### Protected Endpoints
 - `POST /api/ingest` - Trigger data ingestion (requires `Authorization: Bearer $CRON_SECRET`)
 

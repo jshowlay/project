@@ -1,17 +1,26 @@
 export type SortMode = 'rank' | 'score' | 'recency';
 
 export type ParsedQuery = {
-  text: string;            // remaining free-text for FTS
-  tags: string[];          // tag:ai tag:"gen ai"
-  sources: string[];       // source:reddit source:youtube ...
-  region?: string;         // region:US (ISO-ish)
-  since?: Date;            // since:2025-08-01 or since:7d / 24h / 2w / 3m
-  until?: Date;            // until:... / before:...
-  minScore?: number;       // score:>50 / score:>=50
-  maxScore?: number;       // score:<80 / score:<=80
-  minDelta24h?: number;    // delta24h:>5 or <-3
+  text: string;
+  tags: string[];
+  sources: string[];
+  region?: string;
+  since?: Date;
+  until?: Date;
+  minScore?: number;
+  maxScore?: number;
+  minDelta24h?: number;
   maxDelta24h?: number;
-  sort: SortMode;          // sort:rank|score|recency (default rank if text present, else recency)
+  sort: SortMode;
+};
+
+export type TokenKind = 'tag'|'source'|'region'|'since'|'until'|'before'|'sort'|'score'|'delta24h';
+export type QueryToken = {
+  key: TokenKind;
+  value: string;      // normalized value
+  raw: string;        // e.g., source:reddit or tag:"gen ai"
+  start: number;      // start index in original string
+  end: number;        // end index (exclusive)
 };
 
 function parseNumberOp(token: string): {op: '>'|'>='|'<'|'<='; value: number} | null {
@@ -37,8 +46,9 @@ function parseDurationOrDate(v: string): Date | undefined {
   return new Date(now.getTime() - ms);
 }
 
-export function parseQuery(input: string): ParsedQuery {
-  let text = input.trim();
+// NEW: returns both structured query + token spans for UI chips
+export function parseQueryDetailed(input: string): { parsed: ParsedQuery; tokens: QueryToken[] } {
+  let text = input;
   const tags: string[] = [];
   const sources: string[] = [];
   let region: string | undefined;
@@ -49,6 +59,7 @@ export function parseQuery(input: string): ParsedQuery {
   let minDelta24h: number | undefined;
   let maxDelta24h: number | undefined;
   let sort: SortMode | undefined;
+  const tokens: QueryToken[] = [];
 
   const re = /\b(tag|source|region|since|until|before|sort|score|delta24h):("([^"]+)"|[^\s"]+)/gi;
   let match: RegExpExecArray | null;
@@ -56,9 +67,13 @@ export function parseQuery(input: string): ParsedQuery {
   const consumed: { start: number; end: number }[] = [];
 
   while ((match = re.exec(input)) !== null) {
-    const key = match[1].toLowerCase();
+    const key = match[1].toLowerCase() as TokenKind;
+    const rawWhole = match[0];
     const rawVal = (match[3] ?? match[2]).trim();
-    consumed.push({ start: match.index, end: match.index + match[0].length });
+    const start = match.index;
+    const end = match.index + rawWhole.length;
+    consumed.push({ start, end });
+    tokens.push({ key, value: rawVal, raw: rawWhole, start, end });
 
     switch (key) {
       case 'tag': tags.push(rawVal); break;
@@ -99,20 +114,22 @@ export function parseQuery(input: string): ParsedQuery {
     }
   }
 
-  // Remove consumed segments from text (preserve spacing)
+  // Remove consumed spans from a copy of the input to compute the remaining free-text
   if (consumed.length) {
     const spans = consumed.sort((a,b)=>a.start-b.start);
     let i = 0; let out = '';
-    for (const s of spans) {
-      out += input.slice(i, s.start);
-      i = s.end;
-    }
+    for (const s of spans) { out += input.slice(i, s.start); i = s.end; }
     out += input.slice(i);
     text = out.replace(/\s+/g, ' ').trim();
+  } else {
+    text = input.trim();
   }
 
-  // Default sort: if we have text, prefer rank; otherwise recency
   const finalSort: SortMode = sort ?? (text ? 'rank' : 'recency');
+  return { parsed: { text, tags, sources, region, since, until, minScore, maxScore, minDelta24h, maxDelta24h, sort: finalSort }, tokens };
+}
 
-  return { text, tags, sources, region, since, until, minScore, maxScore, minDelta24h, maxDelta24h, sort: finalSort };
+// Backwards-compatible helper used by the API
+export function parseQuery(input: string): ParsedQuery {
+  return parseQueryDetailed(input).parsed;
 }
