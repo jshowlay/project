@@ -7,6 +7,11 @@ export async function GET() {
     await redis().ping();
     return NextResponse.json({ ok: true });
   } catch (e:any) {
-    return NextResponse.json({ ok: false, error: e?.message ?? 'unknown' }, { status: 500 });
+    console.error('Health check failed:', e);
+    return NextResponse.json({ 
+      ok: false, 
+      error: e?.message ?? 'unknown',
+      message: 'Database or Redis connection failed. Check your environment configuration.'
+    }, { status: 500 });
   }
 }

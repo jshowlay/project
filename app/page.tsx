@@ -14,13 +14,24 @@ export default function Page() {
 
   async function load() {
     setLoading(true);
-    const params = new URLSearchParams();
-    if (q) params.set('q', q);
-    if (source) params.set('source', source);
-    const res = await fetch(`/api/trends?${params.toString()}`, { cache: 'no-store' });
-    const data = await res.json();
-    setItems(data.items ?? []);
-    setLoading(false);
+    try {
+      const params = new URLSearchParams();
+      if (q) params.set('q', q);
+      if (source) params.set('source', source);
+      const res = await fetch(`/api/trends?${params.toString()}`, { cache: 'no-store' });
+      
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+      
+      const data = await res.json();
+      setItems(data.items ?? []);
+    } catch (error) {
+      console.error('Failed to load trends:', error);
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
   }
   useEffect(()=>{ load() },[]);
 
@@ -65,7 +76,14 @@ export default function Page() {
             </div>
           ))}
         </div>
-        {items.length===0 && !loading && <div className="mt-10 opacity-80">No items yet. Try ingesting data or adjusting filters.</div>}
+        {items.length===0 && !loading && (
+          <div className="mt-10 text-center">
+            <div className="opacity-80 mb-4">No items yet. Try ingesting data or adjusting filters.</div>
+            <div className="text-sm opacity-60">
+              To get started, add API keys to your .env file and run the ingestion endpoint.
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
