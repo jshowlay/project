@@ -72,10 +72,10 @@ Visit `http://localhost:3000` for the dashboard.
 
 ## 🔍 Search
 
-- Full-text search uses Postgres `websearch_to_tsquery` for Google-like queries:
-  - Quotes: "ai agents"
-  - Boolean: ai OR robotics -crypto
-- Fuzzy fallback uses trigram index when FTS returns no results.
+- Fast search across topics and tags using SQLite LIKE queries
+- Debounced search input with 300ms delay
+- Search across all data sources simultaneously
+- Results ranked by recency and score
 
 ### Search Setup
 1) Run migrations:
