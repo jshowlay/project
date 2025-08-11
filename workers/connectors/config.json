@@ -1,0 +1,30 @@
+{
+  "geo": "US",
+  "language": "en",
+  "time_window_hours": 72,
+  "subreddits_by_niche": {
+    "ai & startups": ["startup","Entrepreneur","SaaS","MachineLearning","ArtificialInteligence","PromptEngineering"],
+    "marketing & social": ["marketing","SEO","socialmedia","FacebookAds","Instagram","TikTokMarketing"],
+    "ecommerce": ["shopify","dropship","Entrepreneur","smallbusiness","ecommerce"],
+    "health & fitness 50+": ["FitnessOver50","flexibility","nutrition","walking","yoga"],
+    "personal finance": ["personalfinance","investing","FinancialPlanning","CryptoCurrency"],
+    "beauty & style": ["MakeupAddiction","SkincareAddiction","femalehairadvice","malefashionadvice"],
+    "travel": ["travel","solotravel","digitalnomad","TravelHacks"],
+    "tech & dev": ["programming","reactjs","webdev","datascience","devops"],
+    "faith & life": ["Catholicism","Christianity","Bible"],
+    "boomer life": ["Retirement","frugal","nostalgia"]
+  },
+  "gtrends_seed_terms": {
+    "ai & startups": ["ai tools","product hunt","startup funding","chatbot","growth hacking"],
+    "marketing & social": ["content calendar","instagram reels","tiktok trend","youtube shorts","seo update"],
+    "ecommerce": ["shopify apps","print on demand","etsy trends","amazon fba"],
+    "health & fitness 50+": ["low impact workout","bone density","walking challenge","mobility routine"],
+    "personal finance": ["high yield savings","cd rates","social security","retirement tax"],
+    "beauty & style": ["skin cycling","clean girl","hair growth serum"],
+    "travel": ["cheap flights","carry on packing","hidden city ticketing"],
+    "tech & dev": ["next.js","cursor ai","bolt replit","fastapi","rag"],
+    "faith & life": ["rosary","daily mass","bible verse of the day"],
+    "boomer life": ["medicare","senior discounts","nostalgia 60s"]
+  }
+}
+

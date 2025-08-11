@@ -1,0 +1,139 @@
+version: '3.8'
+
+services:
+  # Next.js Web Application
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_API_URL=http://localhost:${API_PORT:-8000}
+    volumes:
+      - ./app:/app/app
+      - ./components:/app/components
+      - ./lib:/app/lib
+      - ./public:/app/public
+      - ./styles:/app/styles
+      - ./.env:/app/.env
+    depends_on:
+      - api
+    networks:
+      - trender-network
+
+  # FastAPI Backend
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    ports:
+      - "${API_PORT:-8000}:8000"
+    environment:
+      - PYTHON_ENV=development
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+    volumes:
+      - ./api:/app/api
+      - ./workers:/app/workers
+      - ./.env:/app/.env
+    depends_on:
+      - db
+    networks:
+      - trender-network
+    restart: unless-stopped
+
+  # Background Workers
+  workers:
+    build:
+      context: .
+      dockerfile: Dockerfile.workers
+    environment:
+      - PYTHON_ENV=development
+      - WORKER_CONCURRENCY=2
+    volumes:
+      - ./workers:/app/workers
+      - ./.env:/app/.env
+    depends_on:
+      - db
+      - api
+    networks:
+      - trender-network
+    restart: unless-stopped
+
+  # PostgreSQL Database (Optional - can use Supabase instead)
+  db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=trender_ai
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./supabase/migrations:/docker-entrypoint-initdb.d
+    networks:
+      - trender-network
+
+  # Redis for Caching (Optional)
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - trender-network
+    command: redis-server --appendonly yes
+
+  # Nginx Reverse Proxy (Production)
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./ssl:/etc/nginx/ssl
+    depends_on:
+      - web
+      - api
+    networks:
+      - trender-network
+    profiles:
+      - production
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  trender-network:
+    driver: bridge
+
+# Development override
+# docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+---
+# docker-compose.dev.yml
+version: '3.8'
+
+services:
+  web:
+    command: npm run dev
+    volumes:
+      - /app/node_modules
+      - /app/.next
+    environment:
+      - WATCHPACK_POLLING=true
+
+  api:
+    command: uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - ./requirements.txt:/app/requirements.txt
+
+  workers:
+    command: python -m workers.scheduler --dev
+    environment:
+      - LOG_LEVEL=DEBUG

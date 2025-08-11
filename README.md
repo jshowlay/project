@@ -1,0 +1,168 @@
+# TrenderAI - Multi-Source Trend Analysis Platform
+
+A real-time trend analysis platform that aggregates data from multiple sources (Reddit, YouTube, News APIs, Crypto, Stocks) and provides a unified scoring system with a modern dark-themed dashboard.
+
+## 🚀 Features
+
+- **Multi-Source Ingestion**: Reddit, YouTube, NewsAPI, CoinGecko, Alpha Vantage
+- **Unified Scoring**: Normalized 0-100 scoring across all sources
+- **Real-time Dashboard**: Dark theme with golden accents (#000 / #e5c35a)
+- **Caching & Rate Limiting**: Redis-powered caching and API rate limiting
+- **Production Ready**: Vercel deployment with cron jobs
+- **Type Safety**: Full TypeScript with Zod validation
+
+## 🏗️ Architecture
+
+```
+src/
+├── types/          # Shared TypeScript interfaces
+├── integrations/   # API adapters for each data source
+├── server/         # Database, caching, and ingestion logic
+app/
+├── api/           # Next.js API routes
+├── (dashboard)/   # Dashboard UI components
+```
+
+## 🛠️ Setup
+
+### 1. Install Dependencies
+```bash
+pnpm install
+```
+
+### 2. Environment Configuration
+Copy `.env.example` to `.env` and configure:
+```bash
+cp env.example .env
+```
+
+**Required:**
+- `DATABASE_URL` - PostgreSQL connection string
+- `REDIS_URL` - Redis connection string
+- `CRON_SECRET` - Secret for ingestion endpoint
+
+**Optional (activate adapters):**
+- `REDDIT_CLIENT_ID` & `REDDIT_CLIENT_SECRET` - Reddit API
+- `YOUTUBE_API_KEY` - YouTube Data API
+- `NEWSAPI_KEY` - NewsAPI.org
+- `ALPHAVANTAGE_KEY` - Alpha Vantage (stocks/crypto)
+
+### 3. Database Setup
+```bash
+# Generate Prisma client
+pnpm run build
+
+# Run migrations
+pnpm run migrate
+```
+
+### 4. Start Development
+```bash
+pnpm dev
+```
+
+Visit `http://localhost:3000` for the dashboard.
+
+## 📊 API Endpoints
+
+### Public Endpoints
+- `GET /api/trends` - Fetch trend data with filtering
+- `GET /api/sources` - List active data sources
+- `GET /api/health` - Health check
+
+### Protected Endpoints
+- `POST /api/ingest` - Trigger data ingestion (requires `Authorization: Bearer $CRON_SECRET`)
+
+### Query Parameters
+- `source` - Filter by data source (reddit, youtube, etc.)
+- `q` - Search topics
+- `region` - Filter by region
+- `since` - Filter by date (ISO string)
+- `limit` - Results per page (max 200)
+- `page` - Page number
+
+## 🔄 Data Ingestion
+
+### Manual Ingestion
+```bash
+curl -X POST \
+  -H "Authorization: Bearer $CRON_SECRET" \
+  http://localhost:3000/api/ingest
+```
+
+### Automated Ingestion (Vercel)
+Add a Scheduled Job in Vercel:
+- **URL**: `https://your-app.vercel.app/api/ingest`
+- **Headers**: `Authorization: Bearer $CRON_SECRET`
+- **Schedule**: `0 */6 * * *` (every 6 hours)
+
+### Local Development Cron
+Set `ENABLE_LOCAL_CRON=true` in `.env` for automatic ingestion every 5 minutes.
+
+## 🎨 Theming
+
+The application uses a dark theme with golden accents:
+- **Background**: `#000` (black)
+- **Accent**: `#e5c35a` (golden)
+- **Cards**: `#111` with `#222` borders
+- **Text**: White with opacity variations
+
+## 🧪 Testing
+
+```bash
+# Run tests
+pnpm test
+
+# Run tests with UI
+pnpm test --ui
+```
+
+## 📦 Production Deployment
+
+### Vercel
+1. Connect your repository to Vercel
+2. Set environment variables in Vercel dashboard
+3. Add Scheduled Job for ingestion
+4. Deploy!
+
+### Environment Variables for Production
+- `DATABASE_URL` - Production PostgreSQL
+- `REDIS_URL` - Production Redis
+- `CRON_SECRET` - Strong secret for ingestion
+- API keys for desired data sources
+
+## 🔧 Development
+
+### Available Scripts
+- `pnpm dev` - Start development server
+- `pnpm build` - Build for production
+- `pnpm migrate` - Run database migrations
+- `pnpm test` - Run tests
+- `pnpm lint` - Run ESLint
+
+### Adding New Data Sources
+1. Create adapter in `src/integrations/`
+2. Implement `Adapter` interface
+3. Add to `activeAdapters()` in `src/integrations/index.ts`
+4. Update dashboard source filter
+
+## 📈 Data Flow
+
+1. **Ingestion**: Cron job triggers `/api/ingest`
+2. **Fetching**: Active adapters fetch from external APIs
+3. **Scoring**: Raw data normalized to 0-100 scale
+4. **Storage**: Data saved to PostgreSQL
+5. **Caching**: Latest 100 items cached in Redis
+6. **Display**: Dashboard fetches from cache/DB
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create feature branch
+3. Add tests for new functionality
+4. Ensure all tests pass
+5. Submit pull request
+
+## 📄 License
+
+MIT License - see LICENSE file for details.

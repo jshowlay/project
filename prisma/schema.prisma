@@ -1,0 +1,23 @@
+generator client {
+  provider = "prisma-client-js"
+}
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+model TrendRecord {
+  id          String   @id @default(cuid())
+  source      String   @db.VarChar(32)
+  topic       String
+  score       Float
+  delta24h    Float?
+  url         String?
+  region      String?
+  tags        String[] @db.Text
+  raw         Json?
+  observedAt  DateTime @db.Timestamptz(6)
+  language    String?
+  createdAt   DateTime @default(now())
+  @@index([source, observedAt])
+  @@index([topic])
+}
