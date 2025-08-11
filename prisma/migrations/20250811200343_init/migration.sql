@@ -11,7 +11,8 @@ CREATE TABLE "TrendRecord" (
     "raw" TEXT,
     "observedAt" DATETIME NOT NULL,
     "language" TEXT,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "observedBucket" DATETIME
 );
 
 -- CreateIndex
@@ -19,3 +20,6 @@ CREATE INDEX "TrendRecord_source_observedAt_idx" ON "TrendRecord"("source", "obs
 
 -- CreateIndex
 CREATE INDEX "TrendRecord_topic_idx" ON "TrendRecord"("topic");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "TrendRecord_source_topic_observedBucket_key" ON "TrendRecord"("source", "topic", "observedBucket");

@@ -6,18 +6,21 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 model TrendRecord {
-  id          String   @id @default(cuid())
-  source      String
-  topic       String
-  score       Float
-  delta24h    Float?
-  url         String?
-  region      String?
-  tags        String
-  raw         String?
-  observedAt  DateTime
-  language    String?
-  createdAt   DateTime @default(now())
+  id             String    @id @default(cuid())
+  source         String
+  topic          String
+  score          Float
+  delta24h       Float?
+  url            String?
+  region         String?
+  tags           String
+  raw            String?
+  observedAt     DateTime
+  language       String?
+  createdAt      DateTime  @default(now())
+  observedBucket DateTime? // NEW: hour bucket for dedupe
+
   @@index([source, observedAt])
   @@index([topic])
+  @@unique([source, topic, observedBucket], name: "source_topic_observedBucket") // NEW
 }

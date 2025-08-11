@@ -226,6 +226,13 @@ pnpm test --ui
 4. Ensure all tests pass
 5. Submit pull request
 
+## Hardening Notes
+- **De-dupe:** Records are upserted by `(source, topic, observedBucket)` where `observedBucket = date_trunc('hour', observedAt)`. This prevents hourly duplicate spam while still allowing updates.
+- **Search MV:** When `USE_SEARCH_MV=true` and there's a text query, `/api/trends` uses `tr_trends_mv` for ranked FTS; nightly refresh at 02:00 if `ENABLE_LOCAL_CRON=true`. You can also call the refresh manually in a SQL console: `REFRESH MATERIALIZED VIEW CONCURRENTLY tr_trends_mv;`.
+- **API Guard:** All trend items are sanitized via Zod before returning; `tags` are always `string[]`.
+- **UX:** Dashboard shows skeletons on first load, an error toast on failures, and a Load-more button when more results exist.
+- **Sentry (optional):** Set `SENTRY_DSN` to enable capture on server and client. Basic PII scrubbing is enabled by default.
+
 ## 📄 License
 
 MIT License - see LICENSE file for details.

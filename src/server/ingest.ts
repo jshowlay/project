@@ -4,6 +4,12 @@ import pino from 'pino';
 
 const log = pino({ level: process.env.LOG_LEVEL ?? 'info' });
 
+function bucketHour(d: Date) {
+  const t = d.getTime();
+  const hour = Math.floor(t / 3600000) * 3600000;
+  return new Date(hour);
+}
+
 export async function ingestAll() {
   const adapters = activeAdapters();
   const results = await Promise.allSettled(adapters.map(a => a.fetchTrends({})));
@@ -14,28 +20,45 @@ export async function ingestAll() {
     sources.push(ad.SOURCE_ID);
     const r = results[i];
     if (r.status === 'fulfilled') {
-      const items = r.value.slice(0, 200); // cap per run
+      const items = r.value.slice(0, 200);
       for (const it of items) {
         try {
-          await prisma.trendRecord.create({
-            data: {
+          const observedAt = it.observedAt ? new Date(it.observedAt) : new Date();
+          const observedBucket = bucketHour(observedAt);
+          await prisma.trendRecord.upsert({
+            where: {
+              source_topic_observedBucket: {
+                source: it.source,
+                topic: it.topic,
+                observedBucket
+              }
+            },
+            create: {
               source: it.source,
               topic: it.topic,
               score: it.score,
               delta24h: it.delta24h ?? null,
               url: it.url ?? null,
               region: it.region ?? null,
-              tags: (it.tags ?? []).join(','),
+              tags: Array.isArray(it.tags) ? it.tags.join(',') : '',
               raw: it.raw ? JSON.stringify(it.raw) : null,
-              observedAt: it.observedAt ?? new Date(),
+              observedAt,
+              observedBucket,
               language: it.language ?? null
+            },
+            update: {
+              // Keep latest score/delta/url/tags/observedAt if we re-see this within the same hour
+              score: it.score,
+              delta24h: it.delta24h ?? null,
+              url: it.url ?? null,
+              tags: Array.isArray(it.tags) ? it.tags.join(',') : '',
+              observedAt
             }
           });
           inserted++;
         } catch (e:any) {
-          // ignore duplicates (if any unique constraints later), log others
-          console.warn(`Insert failed for topic "${it.topic}":`, e.message);
-          if (process.env.NODE_ENV !== 'production') log.warn({ err: e, topic: it.topic }, 'insert failed');
+          // log (optional) but continue
+          if (process.env.NODE_ENV !== 'production') log.warn({ err: e, topic: it.topic }, 'upsert failed');
         }
       }
     } else {

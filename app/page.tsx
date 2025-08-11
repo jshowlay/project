@@ -8,14 +8,34 @@ function asTagArray(val: unknown): string[] {
   if (Array.isArray(val)) return val as string[];
   if (val == null) return [];
   if (typeof val === 'string') {
-    try {
-      const parsed = JSON.parse(val);
-      return Array.isArray(parsed) ? parsed : [val];
-    } catch {
-      return [val];
-    }
+    try { const parsed = JSON.parse(val); return Array.isArray(parsed) ? parsed : [val]; }
+    catch { return [val]; }
   }
   return [];
+}
+
+function SkeletonCard() {
+  return (
+    <div className="rounded-2xl p-4 animate-pulse" style={{ background:'#111', border:'1px solid #222' }}>
+      <div className="h-4 w-20 mb-2" style={{ background:'#222', borderRadius:6 }} />
+      <div className="h-6 w-3/4 mb-2" style={{ background:'#222', borderRadius:6 }} />
+      <div className="h-4 w-40" style={{ background:'#222', borderRadius:6 }} />
+    </div>
+  );
+}
+
+function Toast({ message, onClose }:{message:string; onClose:()=>void}) {
+  if (!message) return null;
+  return (
+    <div className="fixed top-4 right-4 z-50 px-4 py-3 rounded-xl"
+      style={{ background:'#1a1a1a', color:'#fff', border:'1px solid #333' }}>
+      <div className="flex items-center gap-3">
+        <span style={{ color:'#e5c35a' }}>⚠</span>
+        <span className="text-sm">{message}</span>
+        <button onClick={onClose} className="ml-3 underline text-sm" style={{ color:'#e5c35a' }}>Close</button>
+      </div>
+    </div>
+  );
 }
 
 type Item = {
@@ -78,27 +98,38 @@ export default function Page() {
   const [uiSource, setUiSource] = useState('');
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [error, setError] = useState('');
   const [recents, setRecents] = useState<RecentSearch[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const { parsed, tokens } = parseQueryDetailed(q);
 
-  async function load(nextPage = 1, opts?: { commit?: boolean }) {
+  async function load(nextPage = 1, opts?: { commit?: boolean; pushHistory?: boolean; append?: boolean }) {
     setLoading(true);
-    const params = new URLSearchParams();
-    if (q.trim()) params.set('q', q.trim());
-    if (uiSource) params.set('source', uiSource);
-    params.set('page', String(nextPage));
-    params.set('limit', '50');
-    const res = await fetch(`/api/trends?${params.toString()}`, { cache: 'no-store' });
-    const data = await res.json();
-    setItems(data.items ?? []);
-    setPage(nextPage);
-    setLoading(false);
-
-    // Save to recents only on explicit commit (Enter/Search button) and non-empty q
-    if (opts?.commit && q.trim().length >= 2) {
-      setRecents(saveRecent(q));
+    setError('');
+    try {
+      const params = new URLSearchParams();
+      if (q.trim()) params.set('q', q.trim());
+      if (uiSource) params.set('source', uiSource);
+      params.set('page', String(nextPage));
+      params.set('limit', '50');
+      const res = await fetch(`/api/trends?${params.toString()}`, { cache: 'no-store' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const newItems = data.items ?? [];
+      setItems(opts?.append ? [...items, ...newItems] : newItems);
+      setTotal(Number(data.total ?? 0));
+      setPage(nextPage);
+      // Save to recents only on explicit commit (Enter/Search button) and non-empty q
+      if (opts?.commit && q.trim().length >= 2) {
+        setRecents(saveRecent(q));
+      }
+    } catch (e:any) {
+      setError('Something went wrong. Please try again.');
+      try { const Sentry = (await import('@sentry/nextjs')); Sentry.captureException?.(e); } catch {}
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -149,6 +180,7 @@ export default function Page() {
 
   return (
     <div className="min-h-screen" style={{ background:'#000', color:'#fff' }}>
+      <Toast message={error} onClose={()=>setError('')} />
       <div className="mx-auto max-w-5xl p-6">
         <h1 className="text-3xl font-semibold" style={{ color:'#e5c35a' }}>TrenderAI Dashboard</h1>
 
@@ -252,48 +284,52 @@ export default function Page() {
           )}
         </div>
 
-        {loading && (
-          <div className="mt-6 text-center">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2" style={{ borderColor: '#e5c35a' }}></div>
-            <div className="mt-2 opacity-80">Loading trends...</div>
+        {/* Results */}
+        <div className="mt-6 grid sm:grid-cols-2 gap-4">
+          {loading && items.length === 0 && Array.from({length:6}).map((_,i)=><SkeletonCard key={i} />)}
+          {items.map(it=>(
+            <div key={it.id ?? it.topic + String(it.observedAt)} className="rounded-2xl p-4" style={{ background:'#111', border:'1px solid #222' }}>
+              <div className="flex items-center justify-between">
+                <span className="text-sm uppercase tracking-wide" style={{ color:'#e5c35a' }}>{it.source}</span>
+                <span className="text-sm">Score: {Math.round(it.score)}</span>
+              </div>
+              <div className="mt-2 text-lg font-medium">{it.topic}</div>
+              <div className="mt-1 text-sm opacity-80">Observed: {new Date(it.observedAt).toLocaleString()}</div>
+              {it.delta24h!=null && <div className="mt-1 text-sm">Δ24h: {Number(it.delta24h).toFixed(2)}%</div>}
+              <div className="mt-3 flex flex-wrap gap-2">
+                {asTagArray((it as any).tags).slice(0,5).map(tag=>(
+                  <span key={tag} className="text-xs px-2 py-1 rounded-full" style={{ background:'#222' }}>#{tag}</span>
+                ))}
+              </div>
+              {it.url && <a href={it.url} target="_blank" className="mt-3 inline-block underline" style={{ color:'#e5c35a' }}>Open</a>}
+            </div>
+          ))}
+        </div>
+
+        {/* Load more */}
+        {items.length < total && (
+          <div className="mt-6 flex justify-center">
+            <button
+              onClick={()=>load(page+1, { append:true, pushHistory:true })}
+              className="px-4 py-2 rounded-xl font-medium"
+              style={{ background:'#e5c35a', color:'#000' }}
+              disabled={loading}
+            >
+              {loading ? 'Loading…' : 'Load more'}
+            </button>
           </div>
         )}
 
-        {!loading && (
-          <>
-            {/* Results grid */}
-            <div className="mt-6 grid sm:grid-cols-2 gap-4">
-              {items.map(it=>(
-                <div key={it.id} className="rounded-2xl p-4" style={{ background:'#111', border:'1px solid #222' }}>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm uppercase tracking-wide" style={{ color:'#e5c35a' }}>{it.source}</span>
-                    <span className="text-sm">Score: {Math.round(it.score)}</span>
-                  </div>
-                  <div className="mt-2 text-lg font-medium">{it.topic}</div>
-                  <div className="mt-1 text-sm opacity-80">Observed: {new Date(it.observedAt).toLocaleString()}</div>
-                  {it.delta24h!=null && <div className="mt-1 text-sm">Δ24h: {it.delta24h!.toFixed(2)}%</div>}
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {asTagArray(it.tags).slice(0, 5).map(tag => (
-                      <span key={tag} className="text-xs px-2 py-1 rounded-full" style={{ background:'#222' }}>#{tag}</span>
-                    ))}
-                  </div>
-                  {it.url && <a href={it.url} target="_blank" className="mt-3 inline-block underline" style={{ color:'#e5c35a' }}>Open</a>}
-                </div>
-              ))}
+        {items.length===0 && !loading && (
+          <div className="mt-10 text-center">
+            <div className="opacity-80 mb-4">No results found.</div>
+            <div className="text-sm opacity-60">
+              {q ? `No trends match "${q}"` : 'No trends available'}
             </div>
-
-            {items.length===0 && (
-              <div className="mt-10 text-center">
-                <div className="opacity-80 mb-4">No results found.</div>
-                <div className="text-sm opacity-60">
-                  {q ? `No trends match "${q}"` : 'No trends available'}
-                </div>
-                <div className="text-sm opacity-60 mt-2">
-                  Try a different search term or check all sources.
-                </div>
-              </div>
-            )}
-          </>
+            <div className="text-sm opacity-60 mt-2">
+              Try a different search term or check all sources.
+            </div>
+          </div>
         )}
       </div>
     </div>
