@@ -9,21 +9,34 @@ export const newsapiAdapter: Adapter = {
   SOURCE_ID: 'newsapi',
   async fetchTrends() {
     if (!key) throw new Error('NEWSAPI_KEY missing');
-    const url = `https://newsapi.org/v2/top-headlines?country=us&category=technology&category=business&pageSize=50`;
-    const { body } = await request(url, { headers: { 'X-Api-Key': key } });
-    const json = await body.json() as any;
-    const arts = json?.articles ?? [];
-    const rawScores = arts.map((a:any, i:number)=> (arts.length - i)); // rough recency/position signal
+    
+    const categories = ['technology', 'business', 'general'];
+    const allArticles: any[] = [];
+    
+    for (const category of categories) {
+      try {
+        const url = `https://newsapi.org/v2/top-headlines?country=us&category=${category}&pageSize=20`;
+        const { body } = await request(url, { headers: { 'X-Api-Key': key } });
+        const json = await body.json() as any;
+        const articles = json?.articles ?? [];
+        allArticles.push(...articles.map((a: any) => ({ ...a, category })));
+      } catch (error) {
+        console.warn(`Failed to fetch ${category} news:`, error);
+      }
+    }
+    
+    const rawScores = allArticles.map((a:any, i:number)=> (allArticles.length - i)); // rough recency/position signal
     const norm = normalizeTo100(rawScores);
-    return arts.map((a:any, i:number)=>({
+    
+    return allArticles.map((a:any, i:number)=>({
       source: 'newsapi',
       topic: String(a.title ?? '').slice(0,280),
       score: clamp(norm[i]),
       delta24h: null,
       url: a.url ?? null,
       region: 'US',
-      tags: ['news','technology','business'],
-      raw: { source: a?.source?.name },
+      tags: ['news', a.category],
+      raw: { source: a?.source?.name, category: a.category },
       observedAt: new Date(a.publishedAt ?? Date.now()),
       language: a?.language ?? null
     }));
