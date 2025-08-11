@@ -70,6 +70,27 @@ Visit `http://localhost:3000` for the dashboard.
 - `GET /api/sources` - List active data sources
 - `GET /api/health` - Health check
 
+## 🔍 Search
+
+- Full-text search uses Postgres `websearch_to_tsquery` for Google-like queries:
+  - Quotes: "ai agents"
+  - Boolean: ai OR robotics -crypto
+- Fuzzy fallback uses trigram index when FTS returns no results.
+
+### Search Setup
+1) Run migrations:
+   ```bash
+   npm run migrate  # or: npx prisma migrate dev -n add_search_indexes
+   ```
+2) Start dev server:
+   ```bash
+   npm run dev
+   ```
+3) Ingest data (if needed):
+   ```bash
+   curl -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/ingest
+   ```
+
 ### Protected Endpoints
 - `POST /api/ingest` - Trigger data ingestion (requires `Authorization: Bearer $CRON_SECRET`)
 

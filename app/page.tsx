@@ -1,9 +1,9 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 type Item = {
-  id:string; source:string; topic:string; score:number; delta24h?:number|null;
-  url?:string|null; region?:string|null; tags?:string; observedAt:string;
+  id: string; source: string; topic: string; score: number; delta24h?: number | null;
+  url?: string | null; region?: string | null; tags?: string[]; observedAt: string;
 };
 
 export default function Page() {
@@ -11,29 +11,32 @@ export default function Page() {
   const [q, setQ] = useState('');
   const [source, setSource] = useState('');
   const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(1);
 
-  async function load() {
+  async function load(nextPage = 1) {
     setLoading(true);
-    try {
-      const params = new URLSearchParams();
-      if (q) params.set('q', q);
-      if (source) params.set('source', source);
-      const res = await fetch(`/api/trends?${params.toString()}`, { cache: 'no-store' });
-      
-      if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`);
-      }
-      
-      const data = await res.json();
-      setItems(data.items ?? []);
-    } catch (error) {
-      console.error('Failed to load trends:', error);
-      setItems([]);
-    } finally {
-      setLoading(false);
-    }
+    const params = new URLSearchParams();
+    if (q) params.set('q', q);
+    if (source) params.set('source', source);
+    params.set('page', String(nextPage));
+    params.set('limit', '50');
+    const res = await fetch(`/api/trends?${params.toString()}`, { cache: 'no-store' });
+    const data = await res.json();
+    setItems(data.items ?? []);
+    setPage(nextPage);
+    setLoading(false);
   }
-  useEffect(()=>{ load() },[]);
+
+  // Debounce search input (300ms)
+  const debounce = useRef<number | null>(null);
+  useEffect(() => {
+    if (debounce.current) window.clearTimeout(debounce.current);
+    debounce.current = window.setTimeout(() => load(1), 300);
+    return () => { if (debounce.current) window.clearTimeout(debounce.current); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q, source]);
+
+  useEffect(() => { load(1); }, []); // initial load
 
   return (
     <div className="min-h-screen" style={{ background:'#000', color:'#fff' }}>
@@ -41,10 +44,13 @@ export default function Page() {
         <h1 className="text-3xl font-semibold" style={{ color:'#e5c35a' }}>TrenderAI Dashboard</h1>
         <div className="mt-4 flex gap-3">
           <input
-            value={q} onChange={e=>setQ(e.target.value)}
-            placeholder="Search topic…" className="px-3 py-2 rounded-xl text-black w-full"
+            value={q}
+            onChange={(e)=>setQ(e.target.value)}
+            onKeyDown={(e)=>{ if (e.key === 'Enter') load(1); }}
+            placeholder="Search (e.g., ai agents OR robotics -crypto)…"
+            className="px-3 py-2 rounded-xl text-black w-full"
           />
-          <select value={source} onChange={e=>setSource(e.target.value)} className="px-3 py-2 rounded-xl text-black">
+          <select value={source} onChange={(e)=>setSource(e.target.value)} className="px-3 py-2 rounded-xl text-black">
             <option value="">All sources</option>
             <option value="reddit">Reddit</option>
             <option value="youtube">YouTube</option>
@@ -52,8 +58,8 @@ export default function Page() {
             <option value="coingecko">CoinGecko</option>
             <option value="alphavantage">Alpha Vantage</option>
           </select>
-          <button onClick={load} className="px-4 py-2 rounded-xl font-medium" style={{ background:'#e5c35a', color:'#000' }}>
-            {loading ? 'Loading…' : 'Apply'}
+          <button onClick={()=>load(1)} className="px-4 py-2 rounded-xl font-medium" style={{ background:'#e5c35a', color:'#000' }}>
+            {loading ? 'Loading…' : 'Search'}
           </button>
         </div>
 
@@ -76,13 +82,9 @@ export default function Page() {
             </div>
           ))}
         </div>
+
         {items.length===0 && !loading && (
-          <div className="mt-10 text-center">
-            <div className="opacity-80 mb-4">No items yet. Try ingesting data or adjusting filters.</div>
-            <div className="text-sm opacity-60">
-              To get started, add API keys to your .env file and run the ingestion endpoint.
-            </div>
-          </div>
+          <div className="mt-10 opacity-80">No results. Try a simpler search or different source.</div>
         )}
       </div>
     </div>
