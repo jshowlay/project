@@ -1,10 +1,11 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { parseQueryDetailed, QueryToken } from '../src/search/query';
+import { parseQueryDetailed, QueryToken } from '@/search/query';
+import SearchSuggest from '@/components/SearchSuggest';
 
 type Item = {
   id: string; source: string; topic: string; score: number; delta24h?: number | null;
-  url?: string | null; region?: string | null; tags?: string; observedAt: string;
+  url?: string | null; region?: string | null; tags?: string[]; observedAt: string;
 };
 
 function Chip({ label, onRemove }: { label: string; onRemove: () => void }) {
@@ -28,40 +29,26 @@ function Chip({ label, onRemove }: { label: string; onRemove: () => void }) {
 
 export default function Page() {
   const [items, setItems] = useState<Item[]>([]);
-  const [q, setQ] = useState('');                 // raw input string (may include operators)
-  const [uiSource, setUiSource] = useState('');   // dropdown source (explicit param)
+  const [q, setQ] = useState('');
+  const [uiSource, setUiSource] = useState('');
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  // Parse tokens (for chips) and the remaining free text
   const { parsed, tokens } = parseQueryDetailed(q);
 
   async function load(nextPage = 1) {
     setLoading(true);
-    try {
-      const params = new URLSearchParams();
-      // Send raw q (operators will be parsed by API), plus explicit uiSource if set
-      if (q.trim()) params.set('q', q.trim());
-      if (uiSource) params.set('source', uiSource);
-      params.set('page', String(nextPage));
-      params.set('limit', '50');
-      
-      const res = await fetch(`/api/trends?${params.toString()}`, { cache: 'no-store' });
-      
-      if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`);
-      }
-      
-      const data = await res.json();
-      console.log('API response:', data); // Debug log
-      setItems(data.items ?? []);
-      setPage(nextPage);
-    } catch (error) {
-      console.error('Failed to load trends:', error);
-      setItems([]);
-    } finally {
-      setLoading(false);
-    }
+    const params = new URLSearchParams();
+    if (q.trim()) params.set('q', q.trim());
+    if (uiSource) params.set('source', uiSource);
+    params.set('page', String(nextPage));
+    params.set('limit', '50');
+    const res = await fetch(`/api/trends?${params.toString()}`, { cache: 'no-store' });
+    const data = await res.json();
+    setItems(data.items ?? []);
+    setPage(nextPage);
+    setLoading(false);
   }
 
   // Debounce q + uiSource
@@ -75,19 +62,27 @@ export default function Page() {
 
   useEffect(() => { load(1); }, []); // initial load
 
-  // Remove a single token by slicing it out of the input and cleaning spaces
   function removeToken(t: QueryToken) {
     const before = q.slice(0, t.start);
     const after = q.slice(t.end);
     const next = (before + ' ' + after).replace(/\s+/g, ' ').trim();
     setQ(next);
+    inputRef.current?.focus();
   }
 
-  // Clear all (only the operator tokens; keep free text if desired)
   function clearAllTokens() {
-    // remove all tokens by keeping only parsed.text
     setQ(parsed.text);
     setUiSource('');
+    inputRef.current?.focus();
+  }
+
+  // Keyboard navigation into the suggestion list: handle up/down/enter/esc by proxy via custom events
+  function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    // Pass-through; our SearchSuggest handles keyboard by mouse interactions & selection on click.
+    // You can extend with a custom event bus if needed.
+    if (e.key === 'Escape') {
+      // noop: SearchSuggest closes on outside click; leaving here for future extension.
+    }
   }
 
   return (
@@ -95,31 +90,44 @@ export default function Page() {
       <div className="mx-auto max-w-5xl p-6">
         <h1 className="text-3xl font-semibold" style={{ color:'#e5c35a' }}>TrenderAI Dashboard</h1>
 
-        {/* Search bar + Source dropdown */}
-        <div className="mt-4 flex gap-3">
-          <input
-            value={q}
-            onChange={(e)=>setQ(e.target.value)}
-            onKeyDown={(e)=>{ if (e.key === 'Enter') load(1); }}
-            placeholder="Search (e.g., ai agents OR robotics -crypto, tag:crypto source:reddit since:7d sort:score)…"
-            className="px-3 py-2 rounded-xl text-black w-full"
-          />
-          <select
-            value={uiSource}
-            onChange={(e)=>setUiSource(e.target.value)}
-            className="px-3 py-2 rounded-xl text-black"
-            title="Filter by Source"
-          >
-            <option value="">All sources</option>
-            <option value="reddit">Reddit</option>
-            <option value="youtube">YouTube</option>
-            <option value="newsapi">News</option>
-            <option value="coingecko">CoinGecko</option>
-            <option value="alphavantage">Alpha Vantage</option>
-          </select>
-          <button onClick={()=>load(1)} className="px-4 py-2 rounded-xl font-medium" style={{ background:'#e5c35a', color:'#000' }}>
-            {loading ? 'Loading…' : 'Search'}
-          </button>
+        <div className="mt-4">
+          {/* Wrap input in a relatively positioned container for the dropdown */}
+          <div className="relative">
+            <div className="flex gap-3">
+              <input
+                ref={inputRef}
+                value={q}
+                onChange={(e)=>setQ(e.target.value)}
+                onKeyDown={onKeyDown}
+                onFocus={()=>{/* suggestions will open automatically */}}
+                placeholder="Search (e.g., ai agents OR robotics -crypto, tag:crypto source:reddit since:7d sort:score)…"
+                className="px-3 py-2 rounded-xl text-black w-full"
+              />
+              <select
+                value={uiSource}
+                onChange={(e)=>setUiSource(e.target.value)}
+                className="px-3 py-2 rounded-xl text-black"
+                title="Filter by Source"
+              >
+                <option value="">All sources</option>
+                <option value="reddit">Reddit</option>
+                <option value="youtube">YouTube</option>
+                <option value="newsapi">News</option>
+                <option value="coingecko">CoinGecko</option>
+                <option value="alphavantage">Alpha Vantage</option>
+              </select>
+              <button onClick={()=>load(1)} className="px-4 py-2 rounded-xl font-medium" style={{ background:'#e5c35a', color:'#000' }}>
+                {loading ? 'Loading…' : 'Search'}
+              </button>
+            </div>
+
+            {/* Suggest dropdown anchored to the input */}
+            <SearchSuggest
+              input={q}
+              anchorRef={inputRef}
+              onApply={(next)=> setQ(next)}
+            />
+          </div>
         </div>
 
         {/* Active operator chips */}
@@ -172,8 +180,8 @@ export default function Page() {
                   <div className="mt-1 text-sm opacity-80">Observed: {new Date(it.observedAt).toLocaleString()}</div>
                   {it.delta24h!=null && <div className="mt-1 text-sm">Δ24h: {it.delta24h!.toFixed(2)}%</div>}
                   <div className="mt-3 flex flex-wrap gap-2">
-                    {(it.tags ? it.tags.split(',').slice(0,5) : []).map(tag=>(
-                      <span key={tag} className="text-xs px-2 py-1 rounded-full" style={{ background:'#222' }}>#{tag.trim()}</span>
+                    {(it.tags??[]).slice(0,5).map(tag=>(
+                      <span key={tag} className="text-xs px-2 py-1 rounded-full" style={{ background:'#222' }}>#{tag}</span>
                     ))}
                   </div>
                   {it.url && <a href={it.url} target="_blank" className="mt-3 inline-block underline" style={{ color:'#e5c35a' }}>Open</a>}

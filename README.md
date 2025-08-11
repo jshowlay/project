@@ -114,6 +114,17 @@ Examples:
 - Click ✕ on any chip to remove that operator from the query; the search updates automatically.
 - The Source dropdown (right of the input) also shows as a chip. Removing it clears the dropdown filter.
 
+## Search Autocomplete
+- Start typing to see operator suggestions like `tag:`, `source:`, `since:`, `sort:`, etc.
+- After an operator, you'll get value suggestions:
+  - `source:` shows active sources from `/api/sources`
+  - `tag:` shows popular tags from `/api/tags`
+  - `region:` shows available regions from `/api/regions`
+  - `since:` / `until:` offer relative presets like `24h`, `7d`, `1m` (or type a date `YYYY-MM-DD`)
+  - `sort:` offers `rank`, `score`, `recency`
+  - `score:` and `delta24h:` offer quick comparators like `>70`, `<20`, etc.
+- Keyboard: ↑/↓ to move, Enter/Tab to apply, Esc to close. Click to select as well.
+
 ### Protected Endpoints
 - `POST /api/ingest` - Trigger data ingestion (requires `Authorization: Bearer $CRON_SECRET`)
 
