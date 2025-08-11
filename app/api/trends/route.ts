@@ -3,6 +3,28 @@ import { prisma, redis } from '../../../src/server/db';
 import { Prisma } from '@prisma/client';
 import { parseQuery } from '../../../src/search/query';
 
+function normalizeTagsArray(items: any[]) {
+  return items.map((it: any) => {
+    let tags = it?.tags;
+    if (Array.isArray(tags)) {
+      // ok
+    } else if (tags == null) {
+      tags = [];
+    } else if (typeof tags === 'string') {
+      try {
+        const parsed = JSON.parse(tags);
+        tags = Array.isArray(parsed) ? parsed : [tags];
+      } catch {
+        tags = [tags];
+      }
+    } else {
+      // unknown shape -> drop to empty array
+      tags = [];
+    }
+    return { ...it, tags };
+  });
+}
+
 function parseDate(v: string | null) {
   if (!v) return undefined;
   const d = new Date(v);
@@ -102,5 +124,8 @@ export async function GET(req: NextRequest) {
     prisma.trendRecord.count({ where }),
   ]);
 
-  return NextResponse.json({ items, page, total });
+  // Normalize tags to arrays
+  const normalizedItems = normalizeTagsArray(items);
+
+  return NextResponse.json({ items: normalizedItems, page, total });
 }
