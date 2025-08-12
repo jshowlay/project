@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import sharp from 'sharp';
 
 export const runtime = 'nodejs';
 
@@ -7,19 +8,31 @@ function isHttpUrl(u: string) {
   catch { return false; }
 }
 
+function pickFormat(accept: string | null, fmtParam?: string | null) {
+  const fmt = (fmtParam || '').toLowerCase();
+  if (fmt === 'avif' || fmt === 'webp' || fmt === 'jpeg' || fmt === 'jpg' || fmt === 'png') return fmt === 'jpg' ? 'jpeg' : fmt;
+  const a = (accept || '').toLowerCase();
+  if (a.includes('image/avif')) return 'avif';
+  if (a.includes('image/webp')) return 'webp';
+  return 'jpeg';
+}
+
 export async function GET(req: NextRequest) {
   const url = req.nextUrl;
   const src = url.searchParams.get('u') || '';
   if (!src || !isHttpUrl(src)) return new NextResponse('bad url', { status: 400 });
 
-  // Sizing params (for future Sharp implementation)
+  // Sizing params
   const wParam = url.searchParams.get('w');
   const dprParam = url.searchParams.get('dpr');
   const qParam = url.searchParams.get('q');
   const fmtParam = url.searchParams.get('fmt');
 
-  // For now, we'll just proxy the image without transforms
-  // TODO: Add Sharp transforms when Node.js version is updated
+  const width = Math.max(0, Math.min(Number(wParam || 0), 2400)) || 0; // clamp max
+  const dpr = Math.min(Math.max(Number(dprParam || 1), 1), 3) || 1;
+  const outW = Math.min(width * dpr || 0, 3000) || undefined; // undefined -> skip resize
+  const quality = Math.min(Math.max(Number(qParam || 82), 30), 95);
+  const outFmt = pickFormat(req.headers.get('accept'), fmtParam);
 
   // Deny local hosts
   const host = new URL(src).hostname.toLowerCase();
@@ -61,16 +74,23 @@ export async function GET(req: NextRequest) {
     }
     const inputBuf = Buffer.concat(chunks);
 
-    // For now, return the original image without transforms
-    // TODO: Add Sharp transforms here when Node.js version is updated
-    const contentType = upstream.headers.get('content-type') || 'image/jpeg';
+    // Transform with sharp if width/format requested
+    let pipeline = sharp(inputBuf, { limitInputPixels: 12000 * 12000 }); // ~144MP guard
+    if (outW) pipeline = pipeline.resize({ width: Math.round(outW), withoutEnlargement: false, fit: 'cover' });
+
+    if (outFmt === 'avif') pipeline = pipeline.avif({ quality, effort: 4, chromaSubsampling: '4:2:0' });
+    else if (outFmt === 'webp') pipeline = pipeline.webp({ quality });
+    else if (outFmt === 'jpeg') pipeline = pipeline.jpeg({ quality, mozjpeg: true });
+    else pipeline = pipeline.png({ compressionLevel: 9 });
+
+    const output = await pipeline.toBuffer();
 
     const h = new Headers();
-    h.set('content-type', contentType);
+    h.set('content-type', `image/${outFmt}`);
     // Cache for a day; allow CDN to keep stale while revalidating
     h.set('cache-control', 'public, s-maxage=86400, stale-while-revalidate=604800');
 
-    return new NextResponse(inputBuf, { status: 200, headers: h });
+    return new NextResponse(output, { status: 200, headers: h });
   } catch (e) {
     return new NextResponse('timeout', { status: 504 });
   } finally {
