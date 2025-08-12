@@ -295,6 +295,12 @@ docker compose -f docker-compose.prod.yml exec web npx prisma migrate deploy
   - Or set `USE_SEARCH_MV=false` to always use base-table FTS.
 - The search API now falls back automatically to base-table FTS and lastly to `ILIKE` to avoid 500s on odd queries.
 
+## Categories (Config-Driven)
+- Edit `src/categories/config.ts` to add or tweak categories.
+- Each category maps to an operator-style query (e.g., `tag:ai since:7d sort:score`).
+- Selecting a category sets the search box to that query, runs the search, and syncs `?cat=<id>` in the URL.
+- "All" clears the category and shows the default feed.
+
 ## 📄 License
 
 MIT License - see LICENSE file for details.
