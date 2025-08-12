@@ -82,10 +82,10 @@ export async function GET(req: NextRequest) {
     if (hasText) {
       // we'll push FTS condition per-table below (TSV name differs on MV vs table)
       // still include tags contains text
-      whereParts.push(Prisma.sql`"tags" LIKE ${'%' + text + '%'}`);
+      whereParts.push(Prisma.sql`EXISTS (SELECT 1 FROM unnest("tags") t WHERE t ILIKE ${'%' + text + '%'})`);
     }
     if (tags.length > 0) {
-      const tagConds = tags.map(t => Prisma.sql`"tags" LIKE ${'%' + t + '%'}`);
+      const tagConds = tags.map(t => Prisma.sql`EXISTS (SELECT 1 FROM unnest("tags") tg WHERE tg ILIKE ${t})`);
       whereParts.push(Prisma.sql`(${Prisma.join(tagConds, ' OR ')})`);
     }
     if (sources.length > 0) whereParts.push(Prisma.sql`(${Prisma.join(sources.map(s => Prisma.sql`"source" = ${s}`), ' OR ')})`);
@@ -101,28 +101,27 @@ export async function GET(req: NextRequest) {
 
     // COUNT (always from base table to be exact)
     const [{ count }] = await prisma.$queryRaw<{ count: bigint }[]>(Prisma.sql`
-      SELECT COUNT(*) AS count FROM "TrendRecord" WHERE ${whereCommon}
-      ${hasText ? Prisma.sql`AND ("topic" LIKE ${'%' + text + '%'} OR "tags" LIKE ${'%' + text + '%'})` : Prisma.empty}
+      SELECT COUNT(*)::bigint AS count FROM "TrendRecord" WHERE ${whereCommon}
+      ${hasText ? Prisma.sql`AND (to_tsvector('english',"topic") @@ websearch_to_tsquery('english', ${text}) OR EXISTS (SELECT 1 FROM unnest("tags") t WHERE t ILIKE ${'%' + text + '%'}))` : Prisma.empty}
     `);
 
     // ORDER BY
-    const orderBySql =
-      sort === 'score' ? Prisma.sql`"score" DESC, "observedAt" DESC` :
-      sort === 'recency' ? Prisma.sql`"observedAt" DESC` :
-      // rank (with text) else recency
-      hasText
-        ? Prisma.sql`"score" DESC, "observedAt" DESC`
-        : Prisma.sql`"observedAt" DESC`;
+    const orderBySql = sort === 'score' ? Prisma.sql`"score" DESC, "observedAt" DESC` : 
+                      sort === 'recency' ? Prisma.sql`"observedAt" DESC` : 
+                      // rank (with text) else recency
+                      hasText ? Prisma.sql`rank DESC, "score" DESC, "observedAt" DESC` : 
+                      Prisma.sql`"observedAt" DESC`;
 
     const useMV = hasText && process.env.USE_SEARCH_MV === 'true';
 
     let items: any[] = [];
     if (useMV) {
-      // For SQLite, we'll use the base table since no MV support
+      // Query MV for ranked FTS
       items = await prisma.$queryRaw<any[]>(Prisma.sql`
-        SELECT id, source, topic, score, delta24h, url, region, tags, observedAt, language
-        FROM "TrendRecord"
-        WHERE "topic" LIKE ${'%' + text + '%'}
+        SELECT id, source, topic, score, delta24h, url, region, tags, observedAt, language,
+               ts_rank_cd(tsv, websearch_to_tsquery('english', ${text})) AS rank
+        FROM tr_trends_mv
+        WHERE tsv @@ websearch_to_tsquery('english', ${text})
           AND ${whereCommon}
         ORDER BY ${orderBySql}
         LIMIT ${limit} OFFSET ${offset}
@@ -130,11 +129,10 @@ export async function GET(req: NextRequest) {
     } else if (hasText) {
       // FTS on base table
       items = await prisma.$queryRaw<any[]>(Prisma.sql`
-        SELECT *,
-          CASE WHEN "topic" LIKE ${'%' + text + '%'} THEN 1 ELSE 0 END AS rank
+        SELECT *, ts_rank_cd(to_tsvector('english', "topic"), websearch_to_tsquery('english', ${text})) AS rank
         FROM "TrendRecord"
         WHERE ${whereCommon}
-          AND ("topic" LIKE ${'%' + text + '%'} OR "tags" LIKE ${'%' + text + '%'})
+          AND (to_tsvector('english',"topic") @@ websearch_to_tsquery('english', ${text}) OR EXISTS (SELECT 1 FROM unnest("tags") t WHERE t ILIKE ${'%' + text + '%'}))
         ORDER BY ${orderBySql}
         LIMIT ${limit} OFFSET ${offset}
       `);
@@ -157,7 +155,7 @@ export async function GET(req: NextRequest) {
     if (hasText && items.length === 0) {
       items = await prisma.$queryRaw<any[]>(Prisma.sql`
         SELECT * FROM "TrendRecord"
-        WHERE "topic" LIKE ${'%' + text + '%'}
+        WHERE "topic" ILIKE ${'%' + text + '%'}
           AND ${whereCommon}
         ORDER BY "observedAt" DESC
         LIMIT ${limit} OFFSET ${offset}

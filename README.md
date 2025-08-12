@@ -225,6 +225,44 @@ docker compose -f docker-compose.prod.yml exec web npx prisma migrate deploy
 3. Add to `activeAdapters()` in `src/integrations/index.ts`
 4. Update dashboard source filter
 
+## Switch from SQLite to PostgreSQL
+
+1) (Optional) Start local Postgres:
+   ```bash
+   npm run pg:up
+   ```
+
+2) Update your `.env` to use PostgreSQL:
+   ```bash
+   DATABASE_URL=postgresql://trender:trenderpw@localhost:5432/trender_ai?schema=public
+   ```
+
+3) Generate both Prisma clients:
+   ```bash
+   npm run prisma:generate:pg
+   npm run prisma:generate:sqlite
+   ```
+
+4) Create and apply PostgreSQL migrations:
+   ```bash
+   npm run db:migrate:pg
+   ```
+
+5) Copy data from SQLite to PostgreSQL:
+   ```bash
+   npm run db:copy:sqlite-to-pg
+   ```
+
+6) Refresh materialized view:
+   ```bash
+   npm run db:mv:refresh
+   ```
+
+7) Test the application:
+   ```bash
+   npm run dev
+   ```
+
 ## 📈 Data Flow
 
 1. **Ingestion**: Cron job triggers `/api/ingest`

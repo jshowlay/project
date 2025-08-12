@@ -8,7 +8,15 @@
     "start": "next start",
     "migrate": "prisma migrate dev",
     "lint": "eslint .",
-    "test": "vitest"
+    "test": "vitest",
+    "pg:up": "docker compose -f docker-compose.pg.yml up -d",
+    "pg:down": "docker compose -f docker-compose.pg.yml down",
+    "prisma:generate:pg": "prisma generate --schema=prisma/schema.prisma",
+    "prisma:generate:sqlite": "prisma generate --schema=prisma/sqlite-migrate.schema.prisma",
+    "db:migrate:pg": "prisma migrate dev -n init-postgres",
+    "db:deploy:pg": "prisma migrate deploy",
+    "db:copy:sqlite-to-pg": "tsx scripts/migrate-sqlite-to-postgres.ts",
+    "db:mv:refresh": "node -e \"(async()=>{const {refreshSearchMV}=await import('./src/server/search_mv');console.log(await refreshSearchMV());})()\""
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",

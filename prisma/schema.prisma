@@ -1,26 +1,29 @@
 generator client {
   provider = "prisma-client-js"
+  // default output for the Postgres client
 }
+
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
 model TrendRecord {
   id             String    @id @default(cuid())
-  source         String
+  source         String    @db.VarChar(32)
   topic          String
   score          Float
   delta24h       Float?
   url            String?
   region         String?
-  tags           String
-  raw            String?
-  observedAt     DateTime
+  tags           String[]  @db.Text
+  raw            Json?
+  observedAt     DateTime  @db.Timestamptz(6)
   language       String?
   createdAt      DateTime  @default(now())
-  observedBucket DateTime? // NEW: hour bucket for dedupe
+  observedBucket DateTime? @db.Timestamptz(6)
 
   @@index([source, observedAt])
   @@index([topic])
-  @@unique([source, topic, observedBucket], name: "source_topic_observedBucket") // NEW
+  @@unique([source, topic, observedBucket], name: "source_topic_observedBucket")
 }
