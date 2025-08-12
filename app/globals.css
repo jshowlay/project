@@ -2,6 +2,23 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --accent: #e5c35b;
+}
+
+.accent-text { color: var(--accent); }
+.accent-bg   { background: var(--accent); color: #000; }
+
+/* Hide scrollbar for webkit browsers */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
 @layer base {
   :root {
     --background: 0 0% 0%;

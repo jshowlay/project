@@ -4,9 +4,10 @@ import { parseQueryDetailed, QueryToken } from '@/search/query';
 import SearchSuggest from '@/components/SearchSuggest';
 import {
   getRecents, saveRecent, removeRecent, clearRecents, togglePin,
-  RecentSearch, exportRecentsJSON, importRecentsJSON
+  RecentSearch
 } from '@/search/recent';
 import { CATEGORIES, getCategory } from '@/categories/config';
+import Logo from '@/components/Logo';
 
 type Item = {
   id?: string;
@@ -26,7 +27,7 @@ function Chip({ label, onRemove }: { label: string; onRemove: () => void }) {
       style={{ background:'#1a1a1a', border:'1px solid #333', color:'#fff' }}>
       {label}
       <button aria-label="Remove" onClick={onRemove} className="rounded-full px-2"
-        style={{ background:'#222', color:'#e5c35a' }}>✕</button>
+        style={{ background:'#222', color:'var(--accent)' }}>✕</button>
     </span>
   );
 }
@@ -39,9 +40,9 @@ function RecentChip({ r, onRun, onPin, onRemove }:{
       style={{ background:'#101010', border:'1px solid #222', color:'#fff' }}>
       <button onClick={()=>onRun(r.query)} className="truncate max-w-[14rem] text-left">{r.query}</button>
       <button title={r.pinned ? 'Unpin' : 'Pin'} onClick={()=>onPin(r.id)} className="rounded-full px-2"
-        style={{ background:'#1a1a1a', color: r.pinned ? '#e5c35a' : '#aaa' }}>★</button>
+        style={{ background:'#1a1a1a', color: r.pinned ? 'var(--accent)' : '#aaa' }}>★</button>
       <button title="Remove" onClick={()=>onRemove(r.id)} className="rounded-full px-2"
-        style={{ background:'#1a1a1a', color:'#e5c35a' }}>✕</button>
+        style={{ background:'#1a1a1a', color:'var(--accent)' }}>✕</button>
     </span>
   );
 }
@@ -72,9 +73,9 @@ function Toast({ message, onClose }:{message:string; onClose:()=>void}) {
     <div className="fixed top-4 right-4 z-50 px-4 py-3 rounded-xl"
       style={{ background:'#1a1a1a', color:'#fff', border:'1px solid #333' }}>
       <div className="flex items-center gap-3">
-        <span style={{ color:'#e5c35a' }}>⚠</span>
+        <span style={{ color:'var(--accent)' }}>⚠</span>
         <span className="text-sm">{message}</span>
-        <button onClick={onClose} className="ml-3 underline text-sm" style={{ color:'#e5c35a' }}>Close</button>
+        <button onClick={onClose} className="ml-3 underline text-sm" style={{ color:'var(--accent)' }}>Close</button>
       </div>
     </div>
   );
@@ -229,7 +230,7 @@ export default function Page() {
 
   // Export/Import recents
   function exportJSON() {
-    const json = exportRecentsJSON();
+    const json = JSON.stringify(recents, null, 2);
     const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -248,8 +249,14 @@ export default function Page() {
     const reader = new FileReader();
     reader.onload = () => {
       const text = String(reader.result || '');
-      setRecents(importRecentsJSON(text, mode));
-      if (fileInputRef.current) fileInputRef.current.value = '';
+      try {
+        const importedRecents = JSON.parse(text);
+        setRecents(importedRecents);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      } catch (e) {
+        setError('Failed to import recents: Invalid JSON file.');
+        try { const Sentry = require('@sentry/nextjs'); Sentry.captureException?.(e); } catch {}
+      }
     };
     reader.readAsText(file);
   }
@@ -258,7 +265,9 @@ export default function Page() {
     <div className="min-h-screen" style={{ background:'#000', color:'#fff' }}>
       <div className="mx-auto max-w-6xl p-6">
         <Toast message={error} onClose={()=>setError('')} />
-        <h1 className="text-3xl font-semibold" style={{ color:'#e5c35a' }}>TrenderAI</h1>
+        <div className="flex items-center justify-between">
+          <Logo />
+        </div>
 
         {/* CATEGORY BAR */}
         <div className="mt-4 flex items-center gap-2 overflow-x-auto no-scrollbar">
@@ -266,7 +275,7 @@ export default function Page() {
             onClick={clearCategory}
             className="px-3 py-1 rounded-full text-sm"
             style={{
-              background: catId ? '#111' : '#e5c35a',
+              background: catId ? '#111' : 'var(--accent)',
               color: catId ? '#fff' : '#000',
               border: '1px solid #222'
             }}
@@ -279,7 +288,7 @@ export default function Page() {
               onClick={()=>applyCategory(cat.id)}
               className="px-3 py-1 rounded-full text-sm inline-flex items-center gap-2"
               style={{
-                background: catId === cat.id ? '#e5c35a' : '#111',
+                background: catId === cat.id ? 'var(--accent)' : '#111',
                 color: catId === cat.id ? '#000' : '#fff',
                 border: '1px solid #222'
               }}
@@ -316,7 +325,7 @@ export default function Page() {
                 <option value="coingecko">CoinGecko</option>
                 <option value="alphavantage">Alpha Vantage</option>
               </select>
-              <button onClick={commitSearch} className="px-4 py-2 rounded-xl font-medium" style={{ background:'#e5c35a', color:'#000' }}>
+              <button onClick={commitSearch} className="px-4 py-2 rounded-xl font-medium" style={{ background:'var(--accent)', color:'#000' }}>
                 {loading ? 'Loading…' : 'Search'}
               </button>
               <button onClick={async ()=>{ try {
@@ -324,7 +333,7 @@ export default function Page() {
                 await navigator.clipboard.writeText(url);
                 setCopied(true); setTimeout(()=>setCopied(false),1200);
               } catch {} }} className="px-3 py-2 rounded-xl font-medium"
-                style={{ background:'#111', color:'#e5c35a', border:'1px solid #222' }}>
+                style={{ background:'#111', color:'var(--accent)', border:'1px solid #222' }}>
                 {copied ? 'Copied!' : 'Copy link'}
               </button>
             </div>
@@ -347,7 +356,7 @@ export default function Page() {
             <Chip label={`source:${uiSource} (UI)`} onRemove={()=>setUiSource('')} />
           )}
           {(tokens.length > 0 || uiSource) && (
-            <button onClick={clearAllTokens} className="underline text-sm" style={{ color:'#e5c35a' }}>
+            <button onClick={clearAllTokens} className="underline text-sm" style={{ color:'var(--accent)' }}>
               Clear all
             </button>
           )}
@@ -356,19 +365,13 @@ export default function Page() {
         {/* Recent searches + Import/Export */}
         <div className="mt-5">
           <div className="flex items-center justify-between mb-2">
-            <h2 className="text-sm uppercase tracking-wide" style={{ color:'#e5c35a' }}>Recent searches</h2>
+            <h2 className="text-sm uppercase tracking-wide" style={{ color:'var(--accent)' }}>Recent searches</h2>
             <div className="flex gap-3">
-              <button onClick={()=>{
-                const json = exportRecentsJSON();
-                const blob = new Blob([json], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a'); a.href = url; a.download = 'trenderai-searches.json';
-                document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-              }} className="text-sm underline" style={{ color:'#e5c35a' }}>Export</button>
-              <button onClick={()=>{ fileInputRef.current?.setAttribute('data-mode','merge'); fileInputRef.current?.click(); }} className="text-sm underline" style={{ color:'#e5c35a' }}>Import (merge)</button>
-              <button onClick={()=>{ fileInputRef.current?.setAttribute('data-mode','replace'); fileInputRef.current?.click(); }} className="text-sm underline" style={{ color:'#e5c35a' }}>Import (replace)</button>
+              <button onClick={exportJSON} className="text-sm underline" style={{ color:'var(--accent)' }}>Export</button>
+              <button onClick={()=>{ fileInputRef.current?.setAttribute('data-mode','merge'); fileInputRef.current?.click(); }} className="text-sm underline" style={{ color:'var(--accent)' }}>Import (merge)</button>
+              <button onClick={()=>{ fileInputRef.current?.setAttribute('data-mode','replace'); fileInputRef.current?.click(); }} className="text-sm underline" style={{ color:'var(--accent)' }}>Import (replace)</button>
               {recents.length > 0 && (
-                <button onClick={() => { if (confirm('Clear all recent searches?')) { clearRecents(); setRecents([]); } }} className="text-sm underline" style={{ color:'#e5c35a' }}>
+                <button onClick={() => { if (confirm('Clear all recent searches?')) { clearRecents(); setRecents([]); } }} className="text-sm underline" style={{ color:'var(--accent)' }}>
                   Clear history
                 </button>
               )}
@@ -380,8 +383,14 @@ export default function Page() {
             const reader = new FileReader();
             reader.onload = () => {
               const text = String(reader.result || '');
-              setRecents(importRecentsJSON(text, mode));
-              if (fileInputRef.current) fileInputRef.current.value = '';
+              try {
+                const importedRecents = JSON.parse(text);
+                setRecents(importedRecents);
+                if (fileInputRef.current) fileInputRef.current.value = '';
+              } catch (e) {
+                setError('Failed to import recents: Invalid JSON file.');
+                try { const Sentry = require('@sentry/nextjs'); Sentry.captureException?.(e); } catch {}
+              }
             };
             reader.readAsText(file);
           }} className="hidden" />
@@ -408,7 +417,7 @@ export default function Page() {
           {items.map(it=>(
             <div key={it.id ?? it.topic + String(it.observedAt)} className="rounded-2xl p-4" style={{ background:'#111', border:'1px solid #222' }}>
               <div className="flex items-center justify-between">
-                <span className="text-sm uppercase tracking-wide" style={{ color:'#e5c35a' }}>{it.source}</span>
+                <span className="text-sm uppercase tracking-wide" style={{ color:'var(--accent)' }}>{it.source}</span>
                 <span className="text-sm">Score: {Math.round(it.score)}</span>
               </div>
               <div className="mt-2 text-lg font-medium">{it.topic}</div>
@@ -419,7 +428,7 @@ export default function Page() {
                   <span key={tag} className="text-xs px-2 py-1 rounded-full" style={{ background:'#222' }}>#{tag}</span>
                 ))}
               </div>
-              {it.url && <a href={it.url} target="_blank" className="mt-3 inline-block underline" style={{ color:'#e5c35a' }}>Open</a>}
+              {it.url && <a href={it.url} target="_blank" className="mt-3 inline-block underline" style={{ color:'var(--accent)' }}>Open</a>}
             </div>
           ))}
         </div>
@@ -430,7 +439,7 @@ export default function Page() {
             <button
               onClick={()=>load(page+1, { append:true, pushHistory:true })}
               className="px-4 py-2 rounded-xl font-medium"
-              style={{ background:'#e5c35a', color:'#000' }}
+              style={{ background:'var(--accent)', color:'#000' }}
               disabled={loading}
             >
               {loading ? 'Loading…' : 'Load more'}
