@@ -7,6 +7,17 @@ import { z } from 'zod';
 let Sentry: any = null;
 try { Sentry = require('@sentry/nextjs'); } catch {}
 
+// Robust fallback helpers
+function nonEmptyText(s?: string | null) {
+  if (!s) return '';
+  const t = s.replace(/[^\p{L}\p{N}\s"':\-]/gu, ' ').replace(/\s+/g, ' ').trim();
+  return t;
+}
+
+async function tryQuery<T>(q: Promise<T>, onError: (e:any)=>Promise<T>|T): Promise<T> {
+  try { return await q; } catch (e) { return await onError(e); }
+}
+
 const TrendOut = z.object({
   id: z.string().optional(),
   source: z.string(),
@@ -63,6 +74,8 @@ export async function GET(req: NextRequest) {
     const since = sinceParam ? new Date(sinceParam) : parsed.since;
     const until = untilParam ? new Date(untilParam) : parsed.until;
     const text = parsed.text;
+    const cleanText = nonEmptyText(text);
+    const hasText = cleanText.length > 0;
     const minScore = parsed.minScore;
     const maxScore = parsed.maxScore;
     const minDelta24h = parsed.minDelta24h;
@@ -77,12 +90,11 @@ export async function GET(req: NextRequest) {
 
     // Build WHERE parts (common)
     const whereParts: Prisma.Sql[] = [];
-    const hasText = Boolean(text);
 
     if (hasText) {
       // we'll push FTS condition per-table below (TSV name differs on MV vs table)
       // still include tags contains text
-      whereParts.push(Prisma.sql`EXISTS (SELECT 1 FROM unnest("tags") t WHERE t ILIKE ${'%' + text + '%'})`);
+      whereParts.push(Prisma.sql`EXISTS (SELECT 1 FROM unnest("tags") t WHERE t ILIKE ${'%' + cleanText + '%'})`);
     }
     if (tags.length > 0) {
       const tagConds = tags.map(t => Prisma.sql`EXISTS (SELECT 1 FROM unnest("tags") tg WHERE tg ILIKE ${t})`);
@@ -99,12 +111,6 @@ export async function GET(req: NextRequest) {
 
     const whereCommon = whereParts.length ? Prisma.sql`${Prisma.join(whereParts, ' AND ')}` : Prisma.sql`TRUE`;
 
-    // COUNT (always from base table to be exact)
-    const [{ count }] = await prisma.$queryRaw<{ count: bigint }[]>(Prisma.sql`
-      SELECT COUNT(*)::bigint AS count FROM "TrendRecord" WHERE ${whereCommon}
-      ${hasText ? Prisma.sql`AND (to_tsvector('english',"topic") @@ websearch_to_tsquery('english', ${text}) OR EXISTS (SELECT 1 FROM unnest("tags") t WHERE t ILIKE ${'%' + text + '%'}))` : Prisma.empty}
-    `);
-
     // ORDER BY
     const orderBySql = sort === 'score' ? Prisma.sql`"score" DESC, "observedAt" DESC` : 
                       sort === 'recency' ? Prisma.sql`"observedAt" DESC` : 
@@ -116,26 +122,54 @@ export async function GET(req: NextRequest) {
 
     let items: any[] = [];
     if (useMV) {
-      // Query MV for ranked FTS
-      items = await prisma.$queryRaw<any[]>(Prisma.sql`
-        SELECT id, source, topic, score, delta24h, url, region, tags, observedAt, language,
-               ts_rank_cd(tsv, websearch_to_tsquery('english', ${text})) AS rank
-        FROM tr_trends_mv
-        WHERE tsv @@ websearch_to_tsquery('english', ${text})
-          AND ${whereCommon}
-        ORDER BY ${orderBySql}
-        LIMIT ${limit} OFFSET ${offset}
-      `);
+      // Query MV for ranked FTS with fallback to base table
+      items = await tryQuery(
+        prisma.$queryRaw<any[]>(Prisma.sql`
+          SELECT id, source, topic, score, delta24h, url, region, tags, observedAt, language,
+            ts_rank_cd(tsv, websearch_to_tsquery('english', ${cleanText})) AS rank
+          FROM tr_trends_mv
+          WHERE tsv @@ websearch_to_tsquery('english', ${cleanText})
+            AND ${whereCommon}
+          ORDER BY ${orderBySql}
+          LIMIT ${limit} OFFSET ${offset}
+        `),
+        async (e) => {
+          // Fallback to base table FTS if MV missing or tsquery fails
+          return await prisma.$queryRaw<any[]>(Prisma.sql`
+            SELECT *,
+              ts_rank_cd(to_tsvector('english', "topic"), websearch_to_tsquery('english', ${cleanText})) AS rank
+            FROM "TrendRecord"
+            WHERE ${whereCommon}
+              AND (to_tsvector('english',"topic") @@ websearch_to_tsquery('english', ${cleanText})
+                   OR EXISTS (SELECT 1 FROM unnest("tags") t WHERE t ILIKE ${'%' + cleanText + '%'}))
+            ORDER BY ${orderBySql}
+            LIMIT ${limit} OFFSET ${offset}
+          `);
+        }
+      );
     } else if (hasText) {
-      // FTS on base table
-      items = await prisma.$queryRaw<any[]>(Prisma.sql`
-        SELECT *, ts_rank_cd(to_tsvector('english', "topic"), websearch_to_tsquery('english', ${text})) AS rank
-        FROM "TrendRecord"
-        WHERE ${whereCommon}
-          AND (to_tsvector('english',"topic") @@ websearch_to_tsquery('english', ${text}) OR EXISTS (SELECT 1 FROM unnest("tags") t WHERE t ILIKE ${'%' + text + '%'}))
-        ORDER BY ${orderBySql}
-        LIMIT ${limit} OFFSET ${offset}
-      `);
+      // FTS on base table with fallback to ILIKE
+      items = await tryQuery(
+        prisma.$queryRaw<any[]>(Prisma.sql`
+          SELECT *, ts_rank_cd(to_tsvector('english', "topic"), websearch_to_tsquery('english', ${cleanText})) AS rank
+          FROM "TrendRecord"
+          WHERE ${whereCommon}
+            AND (to_tsvector('english',"topic") @@ websearch_to_tsquery('english', ${cleanText}) OR EXISTS (SELECT 1 FROM unnest("tags") t WHERE t ILIKE ${'%' + cleanText + '%'}))
+          ORDER BY ${orderBySql}
+          LIMIT ${limit} OFFSET ${offset}
+        `),
+        async () => {
+          // Last-ditch fallback: ILIKE only
+          return await prisma.$queryRaw<any[]>(Prisma.sql`
+            SELECT * FROM "TrendRecord"
+            WHERE ${whereCommon}
+              AND ("topic" ILIKE ${'%' + cleanText + '%'}
+                   OR EXISTS (SELECT 1 FROM unnest("tags") t WHERE t ILIKE ${'%' + cleanText + '%'}))
+            ORDER BY "observedAt" DESC
+            LIMIT ${limit} OFFSET ${offset}
+          `);
+        }
+      );
     } else {
       // No text: simple filtered query
       items = await prisma.trendRecord.findMany({
@@ -155,15 +189,30 @@ export async function GET(req: NextRequest) {
     if (hasText && items.length === 0) {
       items = await prisma.$queryRaw<any[]>(Prisma.sql`
         SELECT * FROM "TrendRecord"
-        WHERE "topic" ILIKE ${'%' + text + '%'}
+        WHERE "topic" ILIKE ${'%' + cleanText + '%'}
           AND ${whereCommon}
         ORDER BY "observedAt" DESC
         LIMIT ${limit} OFFSET ${offset}
       `);
     }
 
+    // Safe COUNT with fallback
+    let totalCount = 0;
+    try {
+      const [{ count }] = await prisma.$queryRaw<{ count: bigint }[]>(Prisma.sql`
+        SELECT COUNT(*)::bigint AS count FROM "TrendRecord"
+        WHERE ${whereCommon}
+          ${hasText ? Prisma.sql`AND (to_tsvector('english',"topic") @@ websearch_to_tsquery('english', ${cleanText})
+             OR EXISTS (SELECT 1 FROM unnest("tags") t WHERE t ILIKE ${'%' + cleanText + '%'}))` : Prisma.empty}
+      `);
+      totalCount = Number(count);
+    } catch {
+      // safe fallback: approximate with current page + one extra check
+      totalCount = items.length + (items.length === limit ? limit : 0);
+    }
+
     const safe = sanitizeItems(items);
-    return NextResponse.json({ items: safe, page, total: Number(count) });
+    return NextResponse.json({ items: safe, page, total: totalCount });
   } catch (e:any) {
     if (Sentry?.captureException) Sentry.captureException(e);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

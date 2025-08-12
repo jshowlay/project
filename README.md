@@ -287,6 +287,14 @@ docker compose -f docker-compose.prod.yml exec web npx prisma migrate deploy
 - **UX:** Dashboard shows skeletons on first load, an error toast on failures, and a Load-more button when more results exist.
 - **Sentry (optional):** Set `SENTRY_DSN` to enable capture on server and client. Basic PII scrubbing is enabled by default.
 
+## Search Troubleshooting
+- If typed search errors, check `/api/search-status`:
+  - `materializedView: false` → run migrations and refresh MV:
+    - `npx prisma migrate dev`
+    - `npm run db:mv:refresh`
+  - Or set `USE_SEARCH_MV=false` to always use base-table FTS.
+- The search API now falls back automatically to base-table FTS and lastly to `ILIKE` to avoid 500s on odd queries.
+
 ## 📄 License
 
 MIT License - see LICENSE file for details.
