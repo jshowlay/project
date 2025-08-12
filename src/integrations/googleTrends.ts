@@ -215,6 +215,39 @@ export async function ingestGoogleTrends(queries: string[], geo: string = GEO): 
   }
 }
 
+// --- TIMESERIES HELPER ---
+export async function getTimeseriesPoints(term: string, geo: string, date: string = 'today 12-m'): Promise<{ t: string; v: number }[]> {
+  const key = cacheKey({ p:'serp', kind:'timeseries_pts', term, geo, date });
+  return fromCache(key, 60 * 30, async () => {
+    const apiKey = process.env.SERPAPI_API_KEY;
+    if (!apiKey) throw new Error('SERPAPI_API_KEY not configured');
+
+    const params = new URLSearchParams({
+      api_key: apiKey,
+      engine: 'google_trends',
+      q: term,
+      geo: geo,
+      data_type: 'TIMESERIES',
+      date: date
+    });
+
+    const response = await fetch(`${SERP_ENDPOINT}?${params.toString()}`);
+    if (!response.ok) throw new Error(`SerpAPI error: ${response.status}`);
+
+    const json = await response.json();
+    if (json.error) throw new Error(`SerpAPI error: ${json.error}`);
+    
+    const raw = json?.interest_over_time?.timeline_data ?? [];
+    const pts = raw.map((r: any) => ({
+      t: r?.time ?? r?.date ?? r?.formattedTime ?? '',
+      v: Number(r?.values?.[0]?.extracted_value ?? r?.values?.[0]?.value ?? 0)
+    })).filter((p: any) => typeof p.v === 'number' && !Number.isNaN(p.v));
+    // Normalize to 0..100 for consistency
+    let max = pts.reduce((m: number, p: any) => Math.max(m, p.v), 0) || 1;
+    return pts.map((p: any) => ({ t: String(p.t), v: Math.round((p.v / max) * 100) }));
+  });
+}
+
 // --- TEST FUNCTION ---
 export async function testGoogleTrends(query: string = 'artificial intelligence'): Promise<TrendData[]> {
   console.log(`Testing Google Trends with query: "${query}"`);

@@ -8,6 +8,7 @@ import {
 } from '@/search/recent';
 import { CATEGORIES, getCategory } from '@/categories/config';
 import Logo from '@/components/Logo';
+import TrendSparkline from '@/components/TrendSparkline';
 
 type Item = {
   id?: string;
@@ -55,6 +56,18 @@ function asTagArray(val: unknown): string[] {
     catch { return [val]; }
   }
   return [];
+}
+
+function deriveTermAndGeo(topic: string, region?: string | null): { term: string; geo: string } {
+  let t = topic || '';
+  // remove region suffix like "Topic [US]"
+  t = t.replace(/\s\[[A-Z]{2}\]$/, '');
+  // remove suffix added by timeseries snapshot
+  t = t.replace(/\s—\sinterest over time$/i, '');
+  // trim quotes
+  t = t.replace(/^"(.*)"$/, '$1').trim();
+  const geo = (region && region.trim()) || 'US';
+  return { term: t, geo };
 }
 
 function SkeletonCard() {
@@ -417,23 +430,31 @@ export default function Page() {
         {/* Results */}
         <div className="mt-6 grid sm:grid-cols-2 gap-4">
           {loading && items.length === 0 && Array.from({length:6}).map((_,i)=><SkeletonCard key={i} />)}
-          {items.map(it=>(
-            <div key={it.id ?? it.topic + String(it.observedAt)} className="rounded-2xl p-4" style={{ background:'#111', border:'1px solid #222' }}>
-              <div className="flex items-center justify-between">
-                <span className="text-sm uppercase tracking-wide" style={{ color:'var(--accent)' }}>{it.source}</span>
-                <span className="text-sm">Score: {Math.round(it.score)}</span>
+          {items.map(it=>{
+            const { term, geo } = deriveTermAndGeo(it.topic, it.region);
+            return (
+              <div key={it.id ?? it.topic + String(it.observedAt)} className="rounded-2xl p-4" style={{ background:'#111', border:'1px solid #222' }}>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm uppercase tracking-wide" style={{ color:'var(--accent)' }}>{it.source}</span>
+                  <span className="text-sm">Score: {Math.round(it.score)}</span>
+                </div>
+                <div className="mt-2 text-lg font-medium">{it.topic}</div>
+                <div className="mt-1 text-sm opacity-80">Observed: {new Date(it.observedAt).toLocaleString()}</div>
+                {it.delta24h!=null && <div className="mt-1 text-sm">Δ24h: {Number(it.delta24h).toFixed(2)}%</div>}
+                {it.source === 'google_trends' && (
+                  <div className="mt-2">
+                    <TrendSparkline term={term} geo={geo} width={160} height={36} />
+                  </div>
+                )}
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {asTagArray((it as any).tags).slice(0,5).map(tag=>(
+                    <span key={tag} className="text-xs px-2 py-1 rounded-full" style={{ background:'#222' }}>#{tag}</span>
+                  ))}
+                </div>
+                {it.url && <a href={it.url} target="_blank" className="mt-3 inline-block underline" style={{ color:'var(--accent)' }}>Open</a>}
               </div>
-              <div className="mt-2 text-lg font-medium">{it.topic}</div>
-              <div className="mt-1 text-sm opacity-80">Observed: {new Date(it.observedAt).toLocaleString()}</div>
-              {it.delta24h!=null && <div className="mt-1 text-sm">Δ24h: {Number(it.delta24h).toFixed(2)}%</div>}
-              <div className="mt-3 flex flex-wrap gap-2">
-                {asTagArray((it as any).tags).slice(0,5).map(tag=>(
-                  <span key={tag} className="text-xs px-2 py-1 rounded-full" style={{ background:'#222' }}>#{tag}</span>
-                ))}
-              </div>
-              {it.url && <a href={it.url} target="_blank" className="mt-3 inline-block underline" style={{ color:'var(--accent)' }}>Open</a>}
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Load more */}

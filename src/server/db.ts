@@ -15,9 +15,9 @@ let _redis: Redis | null = null;
 export function redis() {
   if (_redis) return _redis;
   const url = process.env.REDIS_URL;
-  if (!url) {
+  if (!url || url.includes('localhost:6379')) {
     // Return a mock Redis client for development
-    console.warn('REDIS_URL not set, using mock Redis client');
+    console.warn('REDIS_URL not set or pointing to localhost, using mock Redis client');
     return {
       get: async () => null,
       set: async () => 'OK',
@@ -29,13 +29,15 @@ export function redis() {
   try {
     _redis = new Redis(url, {
       retryDelayOnFailover: 100,
-      maxRetriesPerRequest: 3,
+      maxRetriesPerRequest: 1, // Reduce retries to fail faster
       lazyConnect: true,
+      connectTimeout: 5000, // 5 second timeout
     });
     
     // Handle connection errors gracefully
     _redis.on('error', (err) => {
       console.warn('Redis connection error:', err.message);
+      _redis = null; // Reset on error to allow fallback
     });
     
     return _redis;
