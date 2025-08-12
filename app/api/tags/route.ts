@@ -14,9 +14,8 @@ export async function GET(req: NextRequest) {
   const tagCounts = new Map<string, number>();
   
   for (const record of allRecords) {
-    if (record.tags) {
-      const tags = record.tags.split(',').map(t => t.trim()).filter(t => t.length > 0);
-      for (const tag of tags) {
+    if (record.tags && Array.isArray(record.tags)) {
+      for (const tag of record.tags) {
         const lowerTag = tag.toLowerCase();
         if (q === '' || lowerTag.includes(q.toLowerCase())) {
           tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);

@@ -40,8 +40,8 @@ export async function ingestAll() {
               delta24h: it.delta24h ?? null,
               url: it.url ?? null,
               region: it.region ?? null,
-              tags: Array.isArray(it.tags) ? it.tags.join(',') : '',
-              raw: it.raw ? JSON.stringify(it.raw) : null,
+              tags: Array.isArray(it.tags) ? it.tags : [],
+              raw: it.raw as any,
               observedAt,
               observedBucket,
               language: it.language ?? null
@@ -51,7 +51,7 @@ export async function ingestAll() {
               score: it.score,
               delta24h: it.delta24h ?? null,
               url: it.url ?? null,
-              tags: Array.isArray(it.tags) ? it.tags.join(',') : '',
+              tags: Array.isArray(it.tags) ? it.tags : [],
               observedAt
             }
           });
