@@ -25,6 +25,11 @@ app/
 
 ## 🛠️ Setup
 
+### Prerequisites
+- **Node.js**: Version 18.17.0 or higher (required for Sharp image processing)
+- **PostgreSQL**: Database for trend storage
+- **Redis**: Optional, for caching (falls back to mock client if unavailable)
+
 ### 1. Install Dependencies
 ```bash
 pnpm install
