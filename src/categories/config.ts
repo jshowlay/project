@@ -12,7 +12,8 @@ export const CATEGORIES: Category[] = [
     id: 'ai',
     label: 'AI',
     emoji: '🤖',
-    query: 'tag:ai OR "ai agents" sort:score since:7d'
+    // remove the cross-token OR; keep both signals in query
+    query: 'tag:ai "ai agents" sort:score since:7d'
   },
   {
     id: 'crypto',
@@ -30,19 +31,19 @@ export const CATEGORIES: Category[] = [
     id: 'consumer',
     label: 'Consumer Tech',
     emoji: '📱',
-    query: 'tag:consumer OR "product launch" sort:recency since:14d'
+    query: 'tag:consumer "product launch" sort:recency since:14d'
   },
   {
     id: 'startups',
     label: 'Startups',
     emoji: '🚀',
-    query: 'tag:startups OR founder stories sort:recency since:30d'
+    query: 'tag:startups "founder stories" sort:recency since:30d'
   },
   {
     id: 'gaming',
     label: 'Gaming',
     emoji: '🎮',
-    query: 'tag:gaming OR "game update" sort:recency since:14d'
+    query: 'tag:gaming "game update" sort:recency since:14d'
   }
 ];
 

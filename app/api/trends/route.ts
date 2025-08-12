@@ -10,7 +10,18 @@ try { Sentry = require('@sentry/nextjs'); } catch {}
 // Robust fallback helpers
 function nonEmptyText(s?: string | null) {
   if (!s) return '';
-  const t = s.replace(/[^\p{L}\p{N}\s"':\-]/gu, ' ').replace(/\s+/g, ' ').trim();
+  // remove weird chars, normalize spaces
+  let t = s.replace(/[^\p{L}\p{N}\s"':\-]/gu, ' ').replace(/\s+/g, ' ').trim();
+
+  // strip leading boolean operators or dangles: AND, OR, NOT, -, |
+  // e.g., "OR \"ai agents\"" -> "\"ai agents\""
+  while (/^(AND|OR|NOT|\-|\|\|?|\&\&?)\b/i.test(t)) {
+    t = t.replace(/^(AND|OR|NOT|\-|\|\|?|\&\&?)\b\s*/i, '').trim();
+  }
+
+  // also strip trailing operators (e.g., "ai OR")
+  t = t.replace(/\b(AND|OR|NOT|\-|\|\|?|\&\&?)\s*$/i, '').trim();
+
   return t;
 }
 
@@ -211,8 +222,33 @@ export async function GET(req: NextRequest) {
       totalCount = items.length + (items.length === limit ? limit : 0);
     }
 
-    const safe = sanitizeItems(items);
-    return NextResponse.json({ items: safe, page, total: totalCount });
+    // Normalize tags to arrays and validate response
+    const safe = items.map(item => ({
+      ...item,
+      tags: normalizeTags(item.tags),
+      observedAt: item.observedAt?.toISOString?.() ?? item.observedAt
+    }));
+
+    const debug = new URL(req.url).searchParams.get('debug') === '1';
+    if (debug) {
+      return NextResponse.json({
+        items: safe,
+        page,
+        total: Number(totalCount ?? 0),
+        debug: {
+          text,
+          cleanText,
+          usedMV: hasText && process.env.USE_SEARCH_MV === 'true',
+          countApprox: !totalCount
+        }
+      });
+    }
+
+    return NextResponse.json({
+      items: safe,
+      page,
+      total: Number(totalCount ?? 0)
+    });
   } catch (e:any) {
     if (Sentry?.captureException) Sentry.captureException(e);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
