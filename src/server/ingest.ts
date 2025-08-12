@@ -1,4 +1,5 @@
 import { activeAdapters } from '../integrations';
+import { ingestGoogleTrends } from '@/integrations/googleTrends';
 import { prisma, redis } from './db';
 import pino from 'pino';
 
@@ -15,6 +16,8 @@ export async function ingestAll() {
   const results = await Promise.allSettled(adapters.map(a => a.fetchTrends({})));
   let inserted = 0;
   const sources: string[] = [];
+  
+  // Process existing adapters
   for (let i=0;i<results.length;i++){
     const ad = adapters[i];
     sources.push(ad.SOURCE_ID);
@@ -40,7 +43,7 @@ export async function ingestAll() {
               delta24h: it.delta24h ?? null,
               url: it.url ?? null,
               region: it.region ?? null,
-              tags: Array.isArray(it.tags) ? it.tags : [],
+              tags: Array.isArray(it.tags) ? it.tags as string[] : [],
               raw: it.raw as any,
               observedAt,
               observedBucket,
@@ -51,7 +54,7 @@ export async function ingestAll() {
               score: it.score,
               delta24h: it.delta24h ?? null,
               url: it.url ?? null,
-              tags: Array.isArray(it.tags) ? it.tags : [],
+              tags: Array.isArray(it.tags) ? it.tags as string[] : [],
               observedAt
             }
           });
@@ -65,6 +68,32 @@ export async function ingestAll() {
       log.error({ source: ad.SOURCE_ID, err: r.reason }, 'adapter failed');
     }
   }
+
+  // Ingest Google Trends if configured
+  try {
+    if (process.env.SERPAPI_API_KEY || process.env.TRENDS_ALPHA_ENABLED === 'true') {
+      const googleQueries = [
+        'artificial intelligence',
+        'machine learning',
+        'cryptocurrency',
+        'blockchain',
+        'startup',
+        'entrepreneurship',
+        'technology trends',
+        'AI tools',
+        'ChatGPT',
+        'Web3'
+      ];
+      
+      log.info('Starting Google Trends ingestion');
+      await ingestGoogleTrends(googleQueries);
+      sources.push('google_trends');
+      log.info('Google Trends ingestion completed');
+    }
+  } catch (error: any) {
+    log.error({ err: error }, 'Google Trends ingestion failed');
+  }
+
   // hot cache
   try {
     const latest = await prisma.trendRecord.findMany({
