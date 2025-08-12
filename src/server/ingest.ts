@@ -100,6 +100,7 @@ export async function ingestAll() {
               delta24h: it.delta24h ?? null,
               url: it.url ?? null,
               tags: Array.isArray(it.tags) ? it.tags as string[] : [],
+              raw: it.raw as any,
               observedAt,
               imageUrl: img.imageUrl ?? null,
               images: img.images ?? []

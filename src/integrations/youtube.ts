@@ -29,7 +29,12 @@ export const youtubeAdapter: Adapter = {
         url: `https://www.youtube.com/watch?v=${v.id}`,
         region: 'US',
         tags: (v?.snippet?.tags ?? []).slice(0,5),
-        raw: { id: v.id, channel: v?.snippet?.channelTitle },
+        raw: { 
+          id: v.id, 
+          channel: v?.snippet?.channelTitle,
+          thumbnails: v?.snippet?.thumbnails,
+          snippet: v?.snippet
+        },
         observedAt: new Date(v?.snippet?.publishedAt ?? Date.now()),
         language: v?.snippet?.defaultAudioLanguage ?? null
       });

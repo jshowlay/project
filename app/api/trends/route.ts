@@ -42,7 +42,7 @@ const TrendOut = z.object({
   language: z.string().nullable().optional(),
   rank: z.number().optional(),
   // NEW:
-  imageUrl: z.string().url().nullable().optional()
+  imageUrl: z.union([z.string().url(), z.null()]).optional()
 });
 type TrendDTO = z.infer<typeof TrendOut>;
 
@@ -225,11 +225,10 @@ export async function GET(req: NextRequest) {
     }
 
     // Normalize tags to arrays and validate response
-    const safe = items.map(item => ({
+    const safe = sanitizeItems(items.map(item => ({
       ...item,
-      tags: normalizeTags(item.tags),
       observedAt: item.observedAt?.toISOString?.() ?? item.observedAt
-    }));
+    })));
 
     const debug = new URL(req.url).searchParams.get('debug') === '1';
     if (debug) {

@@ -42,7 +42,18 @@ export const redditAdapter: Adapter = {
           url: p.permalink ? `https://reddit.com${p.permalink}` : null,
           region: null,
           tags: [sub.toLowerCase()],
-          raw: { id: p.id, ups: p.ups, num_comments: p.num_comments, sub },
+          raw: { 
+            id: p.id, 
+            ups: p.ups, 
+            num_comments: p.num_comments, 
+            sub,
+            thumbnail: p.thumbnail,
+            url_overridden_by_dest: p.url_overridden_by_dest,
+            preview: p.preview,
+            media: p.media,
+            is_video: p.is_video,
+            is_self: p.is_self
+          },
           observedAt: new Date(p.created_utc ? p.created_utc*1000 : Date.now()),
           language: (p?.link_flair_text ?? null)
         });
