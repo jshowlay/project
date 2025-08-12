@@ -134,7 +134,7 @@ export default function Page() {
       if (opts?.commit && q.trim().length >= 2) setRecents(saveRecent(q));
     } catch (e:any) {
       setError('Something went wrong. Please try again.');
-      try { const Sentry = (await import('@sentry/nextjs')); Sentry.captureException?.(e); } catch {}
+      try { const Sentry = require('@sentry/nextjs'); Sentry.captureException?.(e); } catch {}
     } finally {
       setLoading(false);
     }
@@ -266,19 +266,15 @@ export default function Page() {
       <div className="mx-auto max-w-6xl p-6">
         <Toast message={error} onClose={()=>setError('')} />
         <div className="flex items-center justify-between">
-          <Logo />
+          <Logo size="lg" />
         </div>
 
         {/* CATEGORY BAR */}
         <div className="mt-4 flex items-center gap-2 overflow-x-auto no-scrollbar">
           <button
             onClick={clearCategory}
-            className="px-3 py-1 rounded-full text-sm"
-            style={{
-              background: catId ? '#111' : 'var(--accent)',
-              color: catId ? '#fff' : '#000',
-              border: '1px solid #222'
-            }}
+            className={catId ? "px-3 py-1 rounded-full text-sm" : "px-3 py-1 rounded-full text-sm btn-accent"}
+            style={catId ? { background:'#111', color:'#fff', border:'1px solid #222' } : {}}
           >
             All
           </button>
@@ -286,12 +282,8 @@ export default function Page() {
             <button
               key={cat.id}
               onClick={()=>applyCategory(cat.id)}
-              className="px-3 py-1 rounded-full text-sm inline-flex items-center gap-2"
-              style={{
-                background: catId === cat.id ? 'var(--accent)' : '#111',
-                color: catId === cat.id ? '#000' : '#fff',
-                border: '1px solid #222'
-              }}
+              className={`px-3 py-1 rounded-full text-sm inline-flex items-center gap-2 ${catId === cat.id ? 'btn-accent' : ''}`}
+              style={catId !== cat.id ? { background:'#111', color:'#fff', border:'1px solid #222' } : {}}
               title={cat.label}
             >
               <span>{cat.emoji ?? '•'}</span>
@@ -325,7 +317,7 @@ export default function Page() {
                 <option value="coingecko">CoinGecko</option>
                 <option value="alphavantage">Alpha Vantage</option>
               </select>
-              <button onClick={commitSearch} className="px-4 py-2 rounded-xl font-medium" style={{ background:'var(--accent)', color:'#000' }}>
+              <button onClick={commitSearch} className="btn-accent">
                 {loading ? 'Loading…' : 'Search'}
               </button>
               <button onClick={async ()=>{ try {
@@ -438,8 +430,7 @@ export default function Page() {
           <div className="mt-6 flex justify-center">
             <button
               onClick={()=>load(page+1, { append:true, pushHistory:true })}
-              className="px-4 py-2 rounded-xl font-medium"
-              style={{ background:'var(--accent)', color:'#000' }}
+              className="btn-accent"
               disabled={loading}
             >
               {loading ? 'Loading…' : 'Load more'}

@@ -3,11 +3,27 @@
 @tailwind utilities;
 
 :root {
-  --accent: #e5c35b;
+  --accent: #e5c35b;          /* NEW brand accent */
+  --accent-fg: #000;          /* readable text on accent */
 }
 
 .accent-text { color: var(--accent); }
-.accent-bg   { background: var(--accent); color: #000; }
+.accent-link { color: var(--accent); text-decoration: underline; }
+
+.btn-accent {
+  background: var(--accent);
+  color: var(--accent-fg);
+  border: 1px solid transparent;
+  border-radius: 0.75rem;     /* rounded-xl */
+  padding: 0.5rem 1rem;       /* px-4 py-2 */
+  font-weight: 600;
+  transition: transform .06s ease, filter .12s ease;
+}
+.btn-accent:hover { filter: brightness(1.05); }
+.btn-accent:active { transform: translateY(1px); }
+.btn-accent:disabled { opacity: .6; cursor: not-allowed; }
+
+.badge-accent { color: var(--accent); }
 
 /* Hide scrollbar for webkit browsers */
 .no-scrollbar::-webkit-scrollbar {
@@ -20,37 +36,8 @@
 }
 
 @layer base {
-  :root {
-    --background: 0 0% 0%;
-    --foreground: 0 0% 100%;
-    --card: 0 0% 6.7%;
-    --card-foreground: 0 0% 100%;
-    --popover: 0 0% 6.7%;
-    --popover-foreground: 0 0% 100%;
-    --primary: 44 87% 61%;
-    --primary-foreground: 0 0% 0%;
-    --secondary: 0 0% 10.2%;
-    --secondary-foreground: 0 0% 100%;
-    --muted: 0 0% 10.2%;
-    --muted-foreground: 0 0% 53.3%;
-    --accent: 44 87% 61%;
-    --accent-foreground: 0 0% 0%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 0 0% 20%;
-    --input: 0 0% 13.3%;
-    --ring: 44 87% 61%;
-    --radius: 0.5rem;
-  }
-}
-
-@layer base {
-  * {
-    @apply border-border;
-  }
-  body {
-    @apply bg-background text-foreground;
-    font-feature-settings: "rlig" 1, "calt" 1;
+  html {
+    font-family: system-ui, sans-serif;
   }
 }
 

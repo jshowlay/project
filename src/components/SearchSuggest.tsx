@@ -214,7 +214,7 @@ export default function SearchSuggest({ input, onApply, anchorRef }: SearchSugge
           >
             <div className="flex items-center justify-between">
               <span>
-                <span style={{ color:'#e5c35a' }}>{it.label.split(':')[0]}:</span>
+                <span style={{ color:'var(--accent)' }}>{it.label.split(':')[0]}:</span>
                 <span> {it.label.split(':').slice(1).join(':')}</span>
               </span>
               {it.hint && <span className="text-xs opacity-70">{it.hint}</span>}

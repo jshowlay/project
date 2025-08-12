@@ -1,16 +1,23 @@
 'use client';
 import Image from 'next/image';
 
-export default function Logo({ className = '' }: { className?: string }) {
-  // Container uses fixed height with responsive width; image uses "fill" + contain for perfect fit.
+type Props = {
+  size?: 'sm' | 'md' | 'lg';
+  className?: string;
+};
+
+export default function Logo({ size='lg', className='' }: Props) {
+  const heightPx = size === 'lg' ? 64 : size === 'sm' ? 32 : 48;
+  const widthClamp = size === 'lg'
+    ? 'clamp(220px, 30vw, 380px)'
+    : size === 'sm'
+      ? 'clamp(120px, 20vw, 180px)'
+      : 'clamp(160px, 24vw, 300px)';
+
   return (
     <div
       className={className}
-      style={{
-        position: 'relative',
-        height: '40px',
-        width: 'clamp(140px, 22vw, 240px)'
-      }}
+      style={{ position:'relative', height: `${heightPx}px`, width: widthClamp }}
       aria-label="TrenderAI Logo"
     >
       <Image
@@ -18,8 +25,8 @@ export default function Logo({ className = '' }: { className?: string }) {
         alt="TrenderAI"
         fill
         priority
-        sizes="(max-width: 640px) 160px, (max-width: 1024px) 200px, 240px"
-        style={{ objectFit: 'contain', objectPosition: 'left center' }}
+        sizes="(max-width: 640px) 220px, (max-width: 1024px) 300px, 380px"
+        style={{ objectFit:'contain', objectPosition:'left center' }}
       />
     </div>
   );
