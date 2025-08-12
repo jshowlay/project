@@ -432,6 +432,10 @@ export default function Page() {
           {loading && items.length === 0 && Array.from({length:6}).map((_,i)=><SkeletonCard key={i} />)}
           {items.map(it=>{
             const { term, geo } = deriveTermAndGeo(it.topic, it.region);
+            // Debug logging
+            if (it.source === 'google_trends') {
+              console.log('Google Trends item:', { topic: it.topic, region: it.region, term, geo });
+            }
             return (
               <div key={it.id ?? it.topic + String(it.observedAt)} className="rounded-2xl p-4" style={{ background:'#111', border:'1px solid #222' }}>
                 <div className="flex items-center justify-between">
@@ -442,7 +446,8 @@ export default function Page() {
                 <div className="mt-1 text-sm opacity-80">Observed: {new Date(it.observedAt).toLocaleString()}</div>
                 {it.delta24h!=null && <div className="mt-1 text-sm">Δ24h: {Number(it.delta24h).toFixed(2)}%</div>}
                 {it.source === 'google_trends' && (
-                  <div className="mt-2">
+                  <div className="mt-2" style={{ border: '1px solid red', padding: '4px' }}>
+                    <div style={{ fontSize: '10px', color: 'red', marginBottom: '4px' }}>DEBUG: term="{term}" geo="{geo}"</div>
                     <TrendSparkline term={term} geo={geo} width={160} height={36} />
                   </div>
                 )}

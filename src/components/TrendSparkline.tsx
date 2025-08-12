@@ -16,8 +16,12 @@ export default function TrendSparkline({ term, geo='US', date='today 12-m', widt
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
+    console.log('TrendSparkline useEffect:', { term, geo, date });
     setData(null); setErr('');
-    if (!term) return;
+    if (!term) {
+      console.log('No term provided, returning');
+      return;
+    }
     abortRef.current?.abort();
     const ctl = new AbortController();
     abortRef.current = ctl;
@@ -27,21 +31,31 @@ export default function TrendSparkline({ term, geo='US', date='today 12-m', widt
     url.searchParams.set('geo', geo);
     url.searchParams.set('date', date);
 
+    console.log('Fetching sparkline from:', url.toString());
+
     fetch(url.toString(), { signal: ctl.signal })
       .then(r => r.json())
       .then(j => {
+        console.log('Sparkline response:', j);
         if (!j?.ok) throw new Error(j?.error || 'failed');
         const pts: Array<{t:string; v:number}> = j.points || [];
-        setData(pts.map(p => Number(p.v) || 0));
+        const dataArray = pts.map(p => Number(p.v) || 0);
+        console.log('Setting data:', dataArray);
+        setData(dataArray);
       })
-      .catch(e => { if (!(e instanceof DOMException)) setErr(String(e?.message ?? e)); });
+      .catch(e => { 
+        console.error('Sparkline error:', e);
+        if (!(e instanceof DOMException)) setErr(String(e?.message ?? e)); 
+      });
 
     return () => ctl.abort();
   }, [term, geo, date]);
 
-  if (err) return <div className="text-xs opacity-60">no sparkline</div>;
+  console.log('TrendSparkline render:', { term, geo, data, err, dataLength: data?.length });
+  
+  if (err) return <div className="text-xs opacity-60">no sparkline (error: {err})</div>;
   if (!data) return (
-    <div style={{ width, height }} className="animate-pulse rounded" />
+    <div style={{ width, height }} className="animate-pulse rounded bg-gray-600" />
   );
   if (data.length === 0) return <div className="text-xs opacity-60">no data</div>;
 
