@@ -113,6 +113,7 @@ export default function Page() {
   }
 
   async function load(nextPage = 1, opts?: { commit?: boolean; pushHistory?: boolean; append?: boolean }) {
+    console.log('Frontend: load() called with:', { nextPage, opts });
     setLoading(true);
     setError('');
     try {
@@ -157,10 +158,12 @@ export default function Page() {
 
   // Boot: read URL (?q, ?source, ?cat) and recents
   useEffect(() => {
+    console.log('Frontend: Initial load useEffect running');
     const url = new URL(window.location.href);
     const initialQ = url.searchParams.get('q') ?? '';
     const initialSource = url.searchParams.get('source') ?? '';
     const initialCat = url.searchParams.get('cat') ?? '';
+    console.log('Frontend: URL params:', { initialQ, initialSource, initialCat });
     if (initialQ) setQ(initialQ);
     if (initialSource) setUiSource(initialSource);
     if (initialCat) {
@@ -172,6 +175,7 @@ export default function Page() {
       }
     }
     setRecents(getRecents());
+    console.log('Frontend: About to call load()');
     setTimeout(() => load(1, { commit: false, pushHistory: false }), 0);
 
     function onPop() {
