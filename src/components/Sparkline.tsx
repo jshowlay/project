@@ -41,7 +41,7 @@ export default memo(function Sparkline({
       className={className}
       style={{ display:'block' }}
     >
-      <path d={path} fill="none" stroke="var(--accent)" strokeWidth={strokeWidth} vectorEffect="non-scaling-stroke" />
+      <path d={path} fill="none" stroke="var(--accent, #e5c35b)" strokeWidth={strokeWidth} vectorEffect="non-scaling-stroke" />
     </svg>
   );
 });

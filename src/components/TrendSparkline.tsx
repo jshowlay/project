@@ -11,6 +11,7 @@ type Props = {
 };
 
 export default function TrendSparkline({ term, geo='US', date='today 12-m', width=160, height=36 }: Props) {
+  console.log('TrendSparkline rendered with:', { term, geo, date });
   const [data, setData] = useState<number[] | null>(null);
   const [err, setErr] = useState<string>('');
   const abortRef = useRef<AbortController | null>(null);
