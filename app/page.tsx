@@ -9,6 +9,7 @@ import {
 import { CATEGORIES, getCategory } from '@/categories/config';
 import Logo from '@/components/Logo';
 import TrendSparkline from '@/components/TrendSparkline';
+import ShareButtons from '@/components/ShareButtons';
 
 type Item = {
   id?: string;
@@ -446,12 +447,20 @@ export default function Page() {
                     <TrendSparkline term={term} geo={geo} width={160} height={36} />
                   </div>
                 )}
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {asTagArray((it as any).tags).slice(0,5).map(tag=>(
-                    <span key={tag} className="text-xs px-2 py-1 rounded-full" style={{ background:'#222' }}>#{tag}</span>
-                  ))}
-                </div>
-                {it.url && <a href={it.url} target="_blank" className="mt-3 inline-block underline" style={{ color:'var(--accent)' }}>Open</a>}
+                                      <div className="mt-3 flex flex-wrap gap-2">
+                        {asTagArray((it as any).tags).slice(0,5).map(tag=>(
+                          <span key={tag} className="text-xs px-2 py-1 rounded-full" style={{ background:'#222' }}>#{tag}</span>
+                        ))}
+                      </div>
+                      <div className="mt-3">
+                        <ShareButtons 
+                          title={it.topic} 
+                          url={it.url} 
+                          source={it.source} 
+                          tags={asTagArray((it as any).tags)}
+                        />
+                      </div>
+                      {it.url && <a href={it.url} target="_blank" className="mt-3 inline-block underline" style={{ color:'var(--accent)' }}>Open</a>}
               </div>
             );
           })}
