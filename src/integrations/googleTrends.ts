@@ -30,6 +30,8 @@ export interface TrendData {
   url?: string;
   observedAt: Date;
   source: 'google_trends';
+  imageUrl?: string | null;
+  images?: string[];
 }
 
 export interface TrendsQuery {

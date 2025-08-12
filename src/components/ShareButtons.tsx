@@ -141,10 +141,10 @@ export default function ShareButtons({ title, url, source='trender', tags=[] }: 
       {/* Copy / Web Share */}
       <button
         aria-label="Copy share link"
-        title={navigator.share ? 'Share' : 'Copy link'}
+        title={typeof navigator !== 'undefined' && 'share' in navigator ? 'Share' : 'Copy link'}
         style={baseBtn}
         onClick={() => {
-          if (navigator.share) webShare();
+          if (typeof navigator !== 'undefined' && 'share' in navigator) webShare();
           else copyLink();
         }}
       >

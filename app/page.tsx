@@ -10,6 +10,7 @@ import { CATEGORIES, getCategory } from '@/categories/config';
 import Logo from '@/components/Logo';
 import TrendSparkline from '@/components/TrendSparkline';
 import ShareButtons from '@/components/ShareButtons';
+import CardImage from '@/components/CardImage';
 
 type Item = {
   id?: string;
@@ -437,14 +438,7 @@ export default function Page() {
                   return (
                     <div key={it.id ?? it.topic + String(it.observedAt)} className="rounded-2xl p-4" style={{ background:'#111', border:'1px solid #222' }}>
                       {it.imageUrl && (
-                        <div className="mb-3 overflow-hidden rounded-xl" style={{ aspectRatio:'16/9', background:'#0e0e0e', border:'1px solid #1b1b1b' }}>
-                          <img
-                            src={`/api/img?u=${encodeURIComponent(String(it.imageUrl))}`}
-                            alt={String(it.topic)}
-                            loading="lazy"
-                            style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }}
-                          />
-                        </div>
+                        <CardImage remoteUrl={String(it.imageUrl)} alt={String(it.topic)} ratio="16/9" widthHint={520} />
                       )}
                       <div className="flex items-center justify-between">
                         <span className="text-sm uppercase tracking-wide" style={{ color:'var(--accent)' }}>{it.source}</span>

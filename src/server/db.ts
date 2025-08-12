@@ -28,7 +28,6 @@ export function redis() {
   
   try {
     _redis = new Redis(url, {
-      retryDelayOnFailover: 100,
       maxRetriesPerRequest: 1, // Reduce retries to fail faster
       lazyConnect: true,
       connectTimeout: 5000, // 5 second timeout
