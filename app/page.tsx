@@ -122,9 +122,13 @@ export default function Page() {
       params.set('page', String(nextPage));
       params.set('limit', '50');
 
-      const res = await fetch(`/api/trends?${params.toString()}`, { cache: 'no-store' });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const url = `/api/trends?${params.toString()}`;
+      console.log('Fetching:', url);
+      const res = await fetch(url, { cache: 'no-store' });
+      console.log('Response status:', res.status, res.statusText);
+      if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
       const data = await res.json();
+      console.log('Response data:', data);
       const newItems = data.items ?? [];
       setItems(opts?.append ? [...items, ...newItems] : newItems);
       setTotal(Number(data.total ?? 0));
@@ -133,7 +137,9 @@ export default function Page() {
       if (opts?.pushHistory) applyUrlState(false); else applyUrlState(true);
       if (opts?.commit && q.trim().length >= 2) setRecents(saveRecent(q));
     } catch (e:any) {
-      setError('Something went wrong. Please try again.');
+      console.error('Load error:', e);
+      const errorMessage = e.message || 'Something went wrong. Please try again.';
+      setError(errorMessage);
       try { const Sentry = require('@sentry/nextjs'); Sentry.captureException?.(e); } catch {}
     } finally {
       setLoading(false);

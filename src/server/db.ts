@@ -21,9 +21,31 @@ export function redis() {
     return {
       get: async () => null,
       set: async () => 'OK',
+      setex: async () => 'OK',
       ping: async () => 'PONG',
     } as any;
   }
-  _redis = new Redis(url);
-  return _redis;
+  
+  try {
+    _redis = new Redis(url, {
+      retryDelayOnFailover: 100,
+      maxRetriesPerRequest: 3,
+      lazyConnect: true,
+    });
+    
+    // Handle connection errors gracefully
+    _redis.on('error', (err) => {
+      console.warn('Redis connection error:', err.message);
+    });
+    
+    return _redis;
+  } catch (error) {
+    console.warn('Failed to connect to Redis, using mock client:', error);
+    return {
+      get: async () => null,
+      set: async () => 'OK',
+      setex: async () => 'OK',
+      ping: async () => 'PONG',
+    } as any;
+  }
 }
