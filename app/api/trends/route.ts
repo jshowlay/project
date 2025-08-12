@@ -40,8 +40,9 @@ const TrendOut = z.object({
   tags: z.array(z.string()).default([]),
   observedAt: z.coerce.date(),
   language: z.string().nullable().optional(),
-  // rank is volatile/optional
-  rank: z.number().optional()
+  rank: z.number().optional(),
+  // NEW:
+  imageUrl: z.string().url().nullable().optional()
 });
 type TrendDTO = z.infer<typeof TrendOut>;
 
@@ -60,7 +61,8 @@ function sanitizeItems(raw: any[]): TrendDTO[] {
     const safe = {
       ...it,
       tags: normalizeTags((it as any)?.tags),
-      url: it?.url ?? null
+      url: it?.url ?? null,
+      imageUrl: (typeof it?.imageUrl === 'string' && /^https?:\/\//.test(it.imageUrl)) ? it.imageUrl : null
     };
     return TrendOut.parse(safe);
   });

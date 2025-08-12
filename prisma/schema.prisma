@@ -23,6 +23,10 @@ model TrendRecord {
   createdAt      DateTime  @default(now())
   observedBucket DateTime? @db.Timestamptz(6)
 
+  // NEW:
+  imageUrl       String?   @db.Text
+  images         String[]  @db.Text
+
   @@index([source, observedAt])
   @@index([topic])
   @@unique([source, topic, observedBucket], name: "source_topic_observedBucket")

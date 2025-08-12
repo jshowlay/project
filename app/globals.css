@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 :root {
-  --accent: #e5c35b;          /* NEW brand accent */
+  --accent: #d5be7a;          /* NEW brand accent */
   --accent-fg: #000;          /* readable text on accent */
 }
 

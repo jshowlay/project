@@ -21,6 +21,7 @@ type Item = {
   region?: string | null;
   tags?: string[] | string | null;
   observedAt: string | Date;
+  imageUrl?: string | null;   // NEW
 };
 
 function Chip({ label, onRemove }: { label: string; onRemove: () => void }) {
@@ -431,14 +432,24 @@ export default function Page() {
         {/* Results */}
         <div className="mt-6 grid sm:grid-cols-2 gap-4">
           {loading && items.length === 0 && Array.from({length:6}).map((_,i)=><SkeletonCard key={i} />)}
-          {items.map(it=>{
-            const { term, geo } = deriveTermAndGeo(it.topic, it.region);
-            return (
-              <div key={it.id ?? it.topic + String(it.observedAt)} className="rounded-2xl p-4" style={{ background:'#111', border:'1px solid #222' }}>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm uppercase tracking-wide" style={{ color:'var(--accent)' }}>{it.source}</span>
-                  <span className="text-sm">Score: {Math.round(it.score)}</span>
-                </div>
+                          {items.map(it=>{
+                  const { term, geo } = deriveTermAndGeo(it.topic, it.region);
+                  return (
+                    <div key={it.id ?? it.topic + String(it.observedAt)} className="rounded-2xl p-4" style={{ background:'#111', border:'1px solid #222' }}>
+                      {it.imageUrl && (
+                        <div className="mb-3 overflow-hidden rounded-xl" style={{ aspectRatio:'16/9', background:'#0e0e0e', border:'1px solid #1b1b1b' }}>
+                          <img
+                            src={`/api/img?u=${encodeURIComponent(String(it.imageUrl))}`}
+                            alt={String(it.topic)}
+                            loading="lazy"
+                            style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }}
+                          />
+                        </div>
+                      )}
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm uppercase tracking-wide" style={{ color:'var(--accent)' }}>{it.source}</span>
+                        <span className="text-sm">Score: {Math.round(it.score)}</span>
+                      </div>
                 <div className="mt-2 text-lg font-medium">{it.topic}</div>
                 <div className="mt-1 text-sm opacity-80">Observed: {new Date(it.observedAt).toLocaleString()}</div>
                 {it.delta24h!=null && <div className="mt-1 text-sm">Δ24h: {Number(it.delta24h).toFixed(2)}%</div>}

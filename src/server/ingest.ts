@@ -5,6 +5,48 @@ import pino from 'pino';
 
 const log = pino({ level: process.env.LOG_LEVEL ?? 'info' });
 
+function pickImageUrl(it: any): { imageUrl?: string | null; images?: string[] } {
+  // Respect explicit field if set by adapter
+  if (it.imageUrl && typeof it.imageUrl === 'string' && it.imageUrl.startsWith('http')) {
+    return { imageUrl: it.imageUrl, images: it.images ?? [] };
+  }
+
+  const raw = it.raw || it.meta || {};
+  const candidates: string[] = [];
+
+  // Common places across providers:
+  // Reddit
+  if (raw?.thumbnail && typeof raw.thumbnail === 'string' && /^https?:\/\//.test(raw.thumbnail) && !/(^self$|^default$)/.test(raw.thumbnail)) candidates.push(raw.thumbnail);
+  if (raw?.url_overridden_by_dest && /^https?:\/\//.test(raw.url_overridden_by_dest)) candidates.push(raw.url_overridden_by_dest);
+  if (raw?.preview?.images?.[0]?.source?.url) candidates.push(String(raw.preview.images[0].source.url).replace(/&amp;/g,'&'));
+
+  // YouTube
+  if (raw?.thumbnails?.high?.url) candidates.push(raw.thumbnails.high.url);
+  if (raw?.thumbnails?.medium?.url) candidates.push(raw.thumbnails.medium.url);
+  if (raw?.thumbnails?.default?.url) candidates.push(raw.thumbnails.default.url);
+  if (raw?.snippet?.thumbnails?.high?.url) candidates.push(raw.snippet.thumbnails.high.url);
+
+  // NewsAPI
+  if (raw?.urlToImage) candidates.push(raw.urlToImage);
+
+  // CoinGecko
+  if (raw?.image?.large) candidates.push(raw.image.large);
+  if (raw?.image?.small) candidates.push(raw.image.small);
+  if (raw?.image) candidates.push(raw.image);
+
+  // Google Trends (trending_now)
+  if (raw?.img?.image) candidates.push(raw.img.image);
+  if (raw?.image?.image) candidates.push(raw.image.image);
+
+  // Generic web image
+  if (it.url && /https?:\/\//.test(it.url) && /\.(png|jpe?g|webp|gif)(\?|#|$)/i.test(it.url)) candidates.push(it.url);
+
+  // Dedup + pick first http(s)
+  const uniq = Array.from(new Set(candidates.map(String)));
+  const first = uniq.find(u => /^https?:\/\//.test(u));
+  return { imageUrl: first || null, images: uniq.slice(0, 6) };
+}
+
 function bucketHour(d: Date) {
   const t = d.getTime();
   const hour = Math.floor(t / 3600000) * 3600000;
@@ -28,6 +70,7 @@ export async function ingestAll() {
         try {
           const observedAt = it.observedAt ? new Date(it.observedAt) : new Date();
           const observedBucket = bucketHour(observedAt);
+          const img = pickImageUrl(it);
           await prisma.trendRecord.upsert({
             where: {
               source_topic_observedBucket: {
@@ -47,7 +90,9 @@ export async function ingestAll() {
               raw: it.raw as any,
               observedAt,
               observedBucket,
-              language: it.language ?? null
+              language: it.language ?? null,
+              imageUrl: img.imageUrl ?? null,
+              images: img.images ?? []
             },
             update: {
               // Keep latest score/delta/url/tags/observedAt if we re-see this within the same hour
@@ -55,7 +100,9 @@ export async function ingestAll() {
               delta24h: it.delta24h ?? null,
               url: it.url ?? null,
               tags: Array.isArray(it.tags) ? it.tags as string[] : [],
-              observedAt
+              observedAt,
+              imageUrl: img.imageUrl ?? null,
+              images: img.images ?? []
             }
           });
           inserted++;

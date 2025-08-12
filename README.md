@@ -301,6 +301,11 @@ docker compose -f docker-compose.prod.yml exec web npx prisma migrate deploy
 - Selecting a category sets the search box to that query, runs the search, and syncs `?cat=<id>` in the URL.
 - "All" clears the category and shows the default feed.
 
+## Card Images
+- Records now store `imageUrl` and optional `images[]`.
+- `/api/img?u=<remote>` safely proxies remote images with caching and size guards—no need to whitelist domains in `next.config.js`.
+- Ingestion extracts thumbnails from Reddit (preview/thumbnail), YouTube (snippet.thumbnails), NewsAPI (`urlToImage`), CoinGecko (`image.large/small`), and Google Trends Trending Now (`image`).
+
 ## 📄 License
 
 MIT License - see LICENSE file for details.

@@ -160,12 +160,13 @@ export async function fetchGoogleTrends(opts: TrendsQuery): Promise<TrendData[]>
 
       // Store in database
       await Promise.all(trends.map(async (trend) => {
+        const observedBucket = new Date(Math.floor(trend.observedAt.getTime() / (24 * 60 * 60 * 1000)) * 24 * 60 * 60 * 1000);
         await prisma.trendRecord.upsert({
           where: {
             source_topic_observedBucket: {
               source: trend.source,
               topic: trend.topic,
-              observedBucket: new Date(Math.floor(trend.observedAt.getTime() / (24 * 60 * 60 * 1000)) * 24 * 60 * 60 * 1000)
+              observedBucket
             }
           },
           update: {
@@ -174,7 +175,9 @@ export async function fetchGoogleTrends(opts: TrendsQuery): Promise<TrendData[]>
             region: trend.region,
             tags: trend.tags,
             url: trend.url,
-            observedAt: trend.observedAt
+            observedAt: trend.observedAt,
+            imageUrl: trend.imageUrl ?? null,
+            images: trend.images ?? []
           },
           create: {
             source: trend.source,
@@ -185,7 +188,9 @@ export async function fetchGoogleTrends(opts: TrendsQuery): Promise<TrendData[]>
             tags: trend.tags,
             url: trend.url,
             observedAt: trend.observedAt,
-            observedBucket: new Date(Math.floor(trend.observedAt.getTime() / (24 * 60 * 60 * 1000)) * 24 * 60 * 60 * 1000)
+            observedBucket,
+            imageUrl: trend.imageUrl ?? null,
+            images: trend.images ?? []
           }
         });
       }));
