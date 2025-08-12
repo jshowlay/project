@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Simple Sparkline Test</title>
+    <style>
+        :root { --accent: #e5c35b; }
+        body { font-family: Arial, sans-serif; padding: 20px; background: #000; color: #fff; }
+        .test { margin: 20px 0; padding: 20px; background: #111; border: 1px solid #222; border-radius: 16px; }
+        svg { border: 1px solid #333; }
+    </style>
+</head>
+<body>
+    <h1>Simple Sparkline Test</h1>
+    
+    <div class="test">
+        <h3>Test 1: Static SVG Sparkline</h3>
+        <svg width="160" height="36" style="display:block">
+            <path d="M 0,36 L 16,28 L 32,32 L 48,24 L 64,20 L 80,16 L 96,12 L 112,8 L 128,4 L 144,0" 
+                  fill="none" stroke="var(--accent)" stroke-width="2" vector-effect="non-scaling-stroke" />
+        </svg>
+    </div>
+
+    <div class="test">
+        <h3>Test 2: Dynamic Sparkline</h3>
+        <div id="dynamic-sparkline">Loading...</div>
+    </div>
+
+    <script>
+        // Test 2: Create dynamic sparkline
+        function createSparkline(data, width = 160, height = 36) {
+            const n = data.length;
+            if (!n) return '';
+            
+            const step = n > 1 ? width / (n - 1) : width;
+            const clamp = (v) => Math.max(0, Math.min(100, v));
+            
+            const pts = data.map((v, i) => {
+                const x = i * step;
+                const y = height - (clamp(v) / 100) * height;
+                return [x, y];
+            });
+            
+            const path = pts.map(([x,y], i) => (i === 0 ? `M ${x},${y}` : `L ${x},${y}`)).join(' ');
+            
+            return `<svg width="${width}" height="${height}" style="display:block">
+                <path d="${path}" fill="none" stroke="var(--accent)" stroke-width="2" vector-effect="non-scaling-stroke" />
+            </svg>`;
+        }
+
+        // Test data
+        const testData = [30, 33, 30, 30, 33, 35, 34, 35, 37, 43, 38, 34, 33, 36, 38, 30, 40, 37, 34, 28, 30, 37, 38, 42, 40, 41, 39, 40, 37, 41, 40, 42, 37, 40, 37, 35, 40, 41, 43, 43, 36, 36, 46, 54, 65, 54, 46, 62, 81, 96, 100, 45, 39];
+        
+        document.getElementById('dynamic-sparkline').innerHTML = createSparkline(testData);
+    </script>
+</body>
+</html>

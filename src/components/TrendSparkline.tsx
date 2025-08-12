@@ -16,12 +16,8 @@ export default function TrendSparkline({ term, geo='US', date='today 12-m', widt
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    console.log('TrendSparkline useEffect:', { term, geo, date });
     setData(null); setErr('');
-    if (!term) {
-      console.log('No term provided, returning');
-      return;
-    }
+    if (!term) return;
     abortRef.current?.abort();
     const ctl = new AbortController();
     abortRef.current = ctl;
@@ -31,29 +27,21 @@ export default function TrendSparkline({ term, geo='US', date='today 12-m', widt
     url.searchParams.set('geo', geo);
     url.searchParams.set('date', date);
 
-    console.log('Fetching sparkline from:', url.toString());
-
     fetch(url.toString(), { signal: ctl.signal })
       .then(r => r.json())
       .then(j => {
-        console.log('Sparkline response:', j);
         if (!j?.ok) throw new Error(j?.error || 'failed');
         const pts: Array<{t:string; v:number}> = j.points || [];
-        const dataArray = pts.map(p => Number(p.v) || 0);
-        console.log('Setting data:', dataArray);
-        setData(dataArray);
+        setData(pts.map(p => Number(p.v) || 0));
       })
       .catch(e => { 
-        console.error('Sparkline error:', e);
         if (!(e instanceof DOMException)) setErr(String(e?.message ?? e)); 
       });
 
     return () => ctl.abort();
   }, [term, geo, date]);
 
-  console.log('TrendSparkline render:', { term, geo, data, err, dataLength: data?.length });
-  
-  if (err) return <div className="text-xs opacity-60">no sparkline (error: {err})</div>;
+  if (err) return <div className="text-xs opacity-60">no sparkline</div>;
   if (!data) return (
     <div style={{ width, height }} className="animate-pulse rounded bg-gray-600" />
   );
