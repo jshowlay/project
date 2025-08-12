@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ingestAll } from '../../../src/server/ingest';
+import { refreshSearchMV } from '@/server/search_mv';
 
 export const runtime = 'nodejs';
 
@@ -9,7 +9,6 @@ export async function POST(req: NextRequest) {
   if (token !== process.env.CRON_SECRET) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-  const t0 = Date.now();
-  const { inserted, sources } = await ingestAll();
-  return NextResponse.json({ inserted, sources, tookMs: Date.now()-t0 });
+  const result = await refreshSearchMV();
+  return NextResponse.json(result);
 }

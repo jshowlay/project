@@ -183,16 +183,32 @@ pnpm test --ui
 ## 📦 Production Deployment
 
 ### Vercel
-1. Connect your repository to Vercel
-2. Set environment variables in Vercel dashboard
-3. Add Scheduled Job for ingestion
-4. Deploy!
+1. Push this repo to GitHub/GitLab/Bitbucket and import it in Vercel.
+2. In **Project Settings → Environment Variables**, set:
+   - `DATABASE_URL`
+   - `REDIS_URL`
+   - `CRON_SECRET`
+   - `USE_SEARCH_MV=true`
+   - `SENTRY_DSN` (optional)
+3. Commit the provided `vercel.json` — Vercel registers Cron automatically on production deploys.
+   - `*/5 * * * *` → `POST /api/ingest`
+   - `0 2 * * *` → `POST /api/refresh-mv`
+   - `*/15 * * * *` → `GET /api/health`
+4. Vercel Cron sends `Authorization: Bearer $CRON_SECRET` to your functions. Your routes validate this before running the task.
+5. After first deploy:
+   - Run one manual ingest to seed data:
+     ```bash
+     curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://<your-domain>/api/ingest
+     ```
+   - Open `https://<your-domain>/` (dashboard).
+   - Check `https://<your-domain>/api/health`.
 
-### Environment Variables for Production
-- `DATABASE_URL` - Production PostgreSQL
-- `REDIS_URL` - Production Redis
-- `CRON_SECRET` - Strong secret for ingestion
-- API keys for desired data sources
+### Docker (self-host)
+```bash
+docker compose -f docker-compose.prod.yml up -d
+# First-time DB setup:
+docker compose -f docker-compose.prod.yml exec web npx prisma migrate deploy
+```
 
 ## 🔧 Development
 

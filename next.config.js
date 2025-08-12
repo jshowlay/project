@@ -1,11 +1,23 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Remove output: 'export' for development
+  reactStrictMode: true,
+  productionBrowserSourceMaps: true,
   eslint: {
     ignoreDuringBuilds: true,
   },
   images: { unoptimized: true },
-  // App router is now default, no need for experimental.appDir
 };
 
-module.exports = nextConfig;
+let cfg = nextConfig;
+
+try {
+  // Enable Sentry build-time integration only if DSN is set
+  if (process.env.SENTRY_DSN) {
+    const { withSentryConfig } = require('@sentry/nextjs');
+    cfg = withSentryConfig(nextConfig, {
+      silent: true
+    });
+  }
+} catch {}
+
+module.exports = cfg;
