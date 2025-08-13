@@ -5,6 +5,9 @@
 :root {
   --accent: #d5be7a;          /* NEW brand accent */
   --accent-fg: #000;          /* readable text on accent */
+  --gold: #e5c35a;            /* gold color for saved posts */
+  --card: #0b0b0b;            /* card background */
+  --border: #1a1a1a;          /* border color */
 }
 
 .accent-text { color: var(--accent); }
@@ -92,4 +95,23 @@ html, body { overscroll-behavior-y: contain; }
   100% {
     background-position: 0% 50%;
   }
+}
+
+/* Utility classes for the new components */
+.bg-gold { background-color: var(--gold); }
+.text-gold { color: var(--gold); }
+.border-gold { border-color: var(--gold); }
+.bg-card { background-color: var(--card); }
+.border-border { border-color: var(--border); }
+.text-neutral-200 { color: #e5e5e5; }
+.text-neutral-300 { color: #d4d4d4; }
+.text-neutral-400 { color: #a3a3a3; }
+.text-neutral-500 { color: #737373; }
+.text-neutral-900 { color: #171717; }
+.bg-neutral-900 { background-color: #171717; }
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }

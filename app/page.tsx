@@ -15,6 +15,9 @@ import PrimaryNav from '@/components/PrimaryNav';
 import MobileNavBar from '@/components/MobileNavBar';
 import CommandPalette from '@/components/CommandPalette';
 import StickyHeader from '@/components/StickyHeader';
+import SavedPostsBadge from '@/components/SavedPostsBadge';
+import SavedPostsSidebar from '@/components/SavedPostsSidebar';
+import CategoriesSidebar from '@/components/CategoriesSidebar';
 
 type Item = {
   id?: string;
@@ -350,8 +353,18 @@ export default function Page() {
         <MobileNavBar />
         <div className="h-12 sm:hidden" />
 
-        {/* Search controls (optional refinement) */}
-        <div className="mt-4">
+        {/* 3-Column Layout */}
+        <div className="grid gap-5 grid-cols-1 lg:grid-cols-[220px_1fr_320px] mt-4">
+          {/* LEFT: Categories Sidebar */}
+          <CategoriesSidebar 
+            selectedCategory={catId} 
+            onCategorySelect={(categoryId) => setCatId(categoryId || '')} 
+          />
+
+          {/* CENTER: Main Content */}
+          <section>
+            {/* Search controls */}
+            <div className="relative">
           <div className="relative">
             <div className="flex flex-wrap gap-3 items-center">
               <input
@@ -518,6 +531,11 @@ export default function Page() {
             </button>
           </div>
         )}
+          </section>
+
+          {/* RIGHT: Saved Posts Sidebar */}
+          <SavedPostsSidebar />
+        </div>
       </div>
     </div>
   );
