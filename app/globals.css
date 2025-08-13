@@ -38,6 +38,27 @@
 /* Make btn-accent text not wrap weirdly in tabs */
 .btn-accent { white-space: nowrap; }
 
+/* Sticky header frame */
+.sticky-header {
+  position: sticky;
+  top: env(safe-area-inset-top, 0);
+  z-index: 60; /* above cards, below modals */
+  background: color-mix(in srgb, #0b0b0b 82%, transparent);
+  -webkit-backdrop-filter: saturate(140%) blur(10px);
+  backdrop-filter: saturate(140%) blur(10px);
+  border-bottom: 1px solid #1b1b1b;
+}
+
+.sticky-header.scrolled {
+  /* thin top highlight + soft drop shadow when content scrolls */
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.04) inset,
+    0 10px 30px rgba(0,0,0,0.30);
+}
+
+/* Optional: avoid rubber-banding affecting sticky on mobile */
+html, body { overscroll-behavior-y: contain; }
+
 @layer base {
   html {
     font-family: system-ui, sans-serif;

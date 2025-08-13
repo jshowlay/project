@@ -1,13 +1,18 @@
 import PrimaryNav from '@/components/PrimaryNav';
 import MobileNavBar from '@/components/MobileNavBar';
 import CommandPalette from '@/components/CommandPalette';
+import StickyHeader from '@/components/StickyHeader';
 
 export const dynamic = 'force-static';
 
 export default function Page() {
   return (
     <div className="mx-auto max-w-6xl p-6">
-      <PrimaryNav />
+      <StickyHeader>
+        <div className="mx-auto max-w-6xl px-4 py-2 sm:px-6 sm:py-3">
+          <PrimaryNav />
+        </div>
+      </StickyHeader>
       <CommandPalette />
       <MobileNavBar /><div className="h-12 sm:hidden" />
       <section className="mt-6">

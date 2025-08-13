@@ -14,6 +14,7 @@ import CardImage from '@/components/CardImage';
 import PrimaryNav from '@/components/PrimaryNav';
 import MobileNavBar from '@/components/MobileNavBar';
 import CommandPalette from '@/components/CommandPalette';
+import StickyHeader from '@/components/StickyHeader';
 
 type Item = {
   id?: string;
@@ -296,49 +297,55 @@ export default function Page() {
     <div className="min-h-screen" style={{ background:'#000', color:'#fff' }}>
       <div className="mx-auto max-w-6xl p-6">
         <Toast message={error} onClose={()=>setError('')} />
-        {/* Header: Logo + Inline Category Nav + (optional) right-side actions */}
-        <header className="w-full flex items-center gap-4">
-          {/* Left: Logo */}
-          <div className="shrink-0">
-            <Logo size="lg" />
-          </div>
+        <StickyHeader>
+          <div className="mx-auto max-w-6xl px-4 py-2 sm:px-6 sm:py-3">
+            {/* Header: Logo + Inline Category Nav + (optional) right-side actions */}
+            <header className="w-full flex items-center gap-4">
+              {/* Left: Logo */}
+              <div className="shrink-0">
+                <Logo size="lg" />
+              </div>
 
-          {/* Center: Categories (inline, scrollable on small screens) */}
-          <nav
-            className="flex-1 overflow-x-auto no-scrollbar"
-            aria-label="Primary categories"
-          >
-            <div className="flex items-center gap-2 min-w-max">
-              <button
-                onClick={clearCategory}
-                className={catId ? "px-3 py-1 rounded-full text-sm" : "px-3 py-1 rounded-full text-sm btn-accent"}
-                style={catId ? { background:'#111', color:'#fff', border:'1px solid #222' } : {}}
+              {/* Center: Categories (inline, scrollable on small screens) */}
+              <nav
+                className="flex-1 overflow-x-auto no-scrollbar"
+                aria-label="Primary categories"
               >
-                All
-              </button>
-              {CATEGORIES.map(cat => (
-                <button
-                  key={cat.id}
-                  onClick={()=>applyCategory(cat.id)}
-                  className={`px-3 py-1 rounded-full text-sm inline-flex items-center gap-2 ${catId === cat.id ? 'btn-accent' : ''}`}
-                  style={catId !== cat.id ? { background:'#111', color:'#fff', border:'1px solid #222' } : {}}
-                  title={cat.label}
-                >
-                  <span>{cat.emoji ?? '•'}</span>
-                  <span className="whitespace-nowrap">{cat.label}</span>
-                </button>
-              ))}
+                <div className="flex items-center gap-2 min-w-max">
+                  <button
+                    onClick={clearCategory}
+                    className={catId ? "px-3 py-1 rounded-full text-sm" : "px-3 py-1 rounded-full text-sm btn-accent"}
+                    style={catId ? { background:'#111', color:'#fff', border:'1px solid #222' } : {}}
+                  >
+                    All
+                  </button>
+                  {CATEGORIES.map(cat => (
+                    <button
+                      key={cat.id}
+                      onClick={()=>applyCategory(cat.id)}
+                      className={`px-3 py-1 rounded-full text-sm inline-flex items-center gap-2 ${catId === cat.id ? 'btn-accent' : ''}`}
+                      style={catId !== cat.id ? { background:'#111', color:'#fff', border:'1px solid #222' } : {}}
+                      title={cat.label}
+                    >
+                      <span>{cat.emoji ?? '•'}</span>
+                      <span className="whitespace-nowrap">{cat.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </nav>
+
+              {/* Right: optional actions spot (keep empty or add buttons later) */}
+              <div className="shrink-0 hidden sm:flex items-center gap-2">
+                <button onClick={()=>postJSON('/api/x/stream/start', {})} className="btn-accent">Live On</button>
+                <button onClick={()=>postJSON('/api/x/stream/stop', {})} className="px-3 py-2 rounded-xl" style={{ background:'#111', color:'#fff', border:'1px solid #222' }}>Live Off</button>
+              </div>
+            </header>
+            <div className="mt-2">
+              <PrimaryNav />
             </div>
-          </nav>
-
-          {/* Right: optional actions spot (keep empty or add buttons later) */}
-          <div className="shrink-0 hidden sm:flex items-center gap-2">
-            <button onClick={()=>postJSON('/api/x/stream/start', {})} className="btn-accent">Live On</button>
-            <button onClick={()=>postJSON('/api/x/stream/stop', {})} className="px-3 py-2 rounded-xl" style={{ background:'#111', color:'#fff', border:'1px solid #222' }}>Live Off</button>
           </div>
-        </header>
+        </StickyHeader>
 
-        <PrimaryNav />
         <CommandPalette />
         <MobileNavBar />
         <div className="h-12 sm:hidden" />
