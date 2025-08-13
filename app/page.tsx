@@ -11,6 +11,9 @@ import Logo from '@/components/Logo';
 import TrendSparkline from '@/components/TrendSparkline';
 import ShareButtons from '@/components/ShareButtons';
 import CardImage from '@/components/CardImage';
+import PrimaryNav from '@/components/PrimaryNav';
+import MobileNavBar from '@/components/MobileNavBar';
+import CommandPalette from '@/components/CommandPalette';
 
 type Item = {
   id?: string;
@@ -335,11 +338,17 @@ export default function Page() {
           </div>
         </header>
 
+        <PrimaryNav />
+        <CommandPalette />
+        <MobileNavBar />
+        <div className="h-12 sm:hidden" />
+
         {/* Search controls (optional refinement) */}
         <div className="mt-4">
           <div className="relative">
             <div className="flex flex-wrap gap-3 items-center">
               <input
+                id="global-search"
                 ref={inputRef}
                 value={q}
                 onChange={(e)=>{ setQ(e.target.value); setCatId(''); }} // typing clears category
