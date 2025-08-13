@@ -143,56 +143,69 @@ async function ingestInstagram() {
 
 async function ingestTwitter() {
   const prisma = (await import('@/server/db')).prisma;
-  const items = await fetchDefaultXSet();
-  let inserted = 0;
+  
+  try {
+    log.info('Twitter: Fetching data from X API...');
+    const items = await fetchDefaultXSet();
+    log.info({ count: items.length }, 'Twitter: Got data from X API');
+    
+    let inserted = 0;
+    let errors = 0;
 
-  for (const it of items) {
-    const observedAt = it.observedAt ?? new Date();
-    const observedBucket = new Date(Math.floor(observedAt.getTime()/3600000)*3600000);
-    const tags = Array.isArray(it.tags) ? it.tags : [];
-    const topic = it.topic; // contains [tw:id] for uniqueness
+    for (const it of items) {
+      const observedAt = it.observedAt ?? new Date();
+      const observedBucket = new Date(Math.floor(observedAt.getTime()/3600000)*3600000);
+      const tags = Array.isArray(it.tags) ? it.tags : [];
+      const topic = it.topic; // contains [tw:id] for uniqueness
 
-    // upgrade image URL if available (pbs.twimg.com → name=orig, etc.)
-    const imgUrl = it.imageUrl ? upgradeImageUrl(it.imageUrl) : null;
+      // upgrade image URL if available (pbs.twimg.com → name=orig, etc.)
+      const imgUrl = it.imageUrl ? upgradeImageUrl(it.imageUrl) : null;
 
-    try {
-      await prisma.trendRecord.upsert({
-        where: {
-          source_topic_observedBucket: {
+      try {
+        await prisma.trendRecord.upsert({
+          where: {
+            source_topic_observedBucket: {
+              source: 'twitter',
+              topic,
+              observedBucket
+            }
+          },
+          create: {
             source: 'twitter',
             topic,
-            observedBucket
+            score: it.score ?? 0,
+            delta24h: null,
+            url: it.url ?? null,
+            region: it.region ?? null,
+            tags,
+            raw: it.meta ?? {},
+            observedAt,
+            observedBucket,
+            language: null,
+            imageUrl: imgUrl,
+            images: imgUrl ? [imgUrl] : []
+          },
+          update: {
+            score: it.score ?? 0,
+            url: it.url ?? null,
+            tags,
+            observedAt,
+            imageUrl: imgUrl ?? null
           }
-        },
-        create: {
-          source: 'twitter',
-          topic,
-          score: it.score ?? 0,
-          delta24h: null,
-          url: it.url ?? null,
-          region: it.region ?? null,
-          tags,
-          raw: it.meta ?? {},
-          observedAt,
-          observedBucket,
-          language: null,
-          imageUrl: imgUrl,
-          images: imgUrl ? [imgUrl] : []
-        },
-        update: {
-          score: it.score ?? 0,
-          url: it.url ?? null,
-          tags,
-          observedAt,
-          imageUrl: imgUrl ?? null
-        }
-      });
-      inserted++;
-    } catch {
-      // ignore single-row failures
+        });
+        inserted++;
+      } catch (e) {
+        errors++;
+        log.warn({ err: e, topic: topic.slice(0, 50) }, 'Twitter: upsert failed');
+      }
     }
+    
+    log.info({ inserted, errors, total: items.length }, 'Twitter: Ingestion completed');
+    return inserted;
+  } catch (error: any) {
+    log.error({ err: error }, 'Twitter: Failed to fetch data from X API');
+    return 0;
   }
-  return inserted;
 }
 
 export async function ingestAll() {

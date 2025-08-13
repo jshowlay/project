@@ -343,6 +343,22 @@ docker compose -f docker-compose.prod.yml exec web npx prisma migrate deploy
   curl "http://localhost:3000/api/x/trends?woeid=23424977"
   ```
 
+## X (Twitter) Filtered Stream
+- Environment:
+  - `X_STREAM_ENABLED=true`
+  - `X_STREAM_RULES` — comma/newline separated search rules (v2 syntax)
+  - `X_STREAM_AUTO_START=true` (optional)
+  - `X_STREAM_BACKOFF_MAX_SEC` (default 60)
+- Endpoints:
+  - `POST /api/x/stream/start` — begin streaming
+  - `POST /api/x/stream/stop` — stop streaming
+  - `GET  /api/x/stream/rules` — list rules
+  - `POST /api/x/stream/rules` with `{ "mode":"replaceEnv" }` or `{ "mode":"deleteAll" }` or `{ "rules": ["<expr>", ...] }`
+- Notes:
+  - Stream requires the right API access/plan on X.
+  - This implementation maintains a single in-process connection with exponential backoff and writes incoming tweets to `TrendRecord` with `source="twitter"`.
+  - Recent Search also now **auto-expands quoted/retweeted media** so cards show images more reliably.
+
 ## 📄 License
 
 MIT License - see LICENSE file for details.

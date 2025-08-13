@@ -97,6 +97,8 @@ function Toast({ message, onClose }:{message:string; onClose:()=>void}) {
   );
 }
 
+async function postJSON(url:string, body:any){ await fetch(url, { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body) }); }
+
 export default function Page() {
   const [items, setItems] = useState<Item[]>([]);
   const [q, setQ] = useState('');
@@ -328,9 +330,8 @@ export default function Page() {
 
           {/* Right: optional actions spot (keep empty or add buttons later) */}
           <div className="shrink-0 hidden sm:flex items-center gap-2">
-            {/* example placeholder:
-            <button onClick={commitSearch} className="btn-accent">Refresh</button>
-            */}
+            <button onClick={()=>postJSON('/api/x/stream/start', {})} className="btn-accent">Live On</button>
+            <button onClick={()=>postJSON('/api/x/stream/stop', {})} className="px-3 py-2 rounded-xl" style={{ background:'#111', color:'#fff', border:'1px solid #222' }}>Live Off</button>
           </div>
         </header>
 

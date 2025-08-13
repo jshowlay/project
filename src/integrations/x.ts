@@ -14,6 +14,17 @@ type XMedia = {
 
 type XUser = { id: string; name: string; username: string; profile_image_url?: string };
 
+type XV2Ref = { type: 'retweeted'|'quoted'|'replied_to', id: string };
+type XV2Includes = {
+  media?: XMedia[];
+  users?: XUser[];
+  tweets?: XV2Tweet[];
+};
+type XV2Resp = {
+  data?: XV2Tweet[];
+  includes?: XV2Includes;
+};
+
 type XV2Tweet = {
   id: string;
   text: string;
@@ -24,7 +35,38 @@ type XV2Tweet = {
   attachments?: { media_keys?: string[] };
   author_id?: string;
   entities?: { hashtags?: Array<{ tag: string }> };
+  referenced_tweets?: XV2Ref[];
 };
+
+function resolveMediaUrlFromTweet(
+  t: XV2Tweet,
+  includes: XV2Includes
+): string | null {
+  const mediaByKey = new Map<string, XMedia>((includes.media ?? []).map(m => [m.media_key, m]));
+  const tweetsById = new Map<string, XV2Tweet>((includes.tweets ?? []).map(tt => [tt.id, tt]));
+  // 1) media on the tweet itself
+  const keys = t.attachments?.media_keys ?? [];
+  for (const k of keys) {
+    const m = mediaByKey.get(k!);
+    const u = imageFromMedia(m || null);
+    if (u) return u;
+  }
+  // 2) media on referenced (quoted / retweeted) tweet
+  const refs: XV2Ref[] = (t as any).referenced_tweets ?? [];
+  for (const r of refs) {
+    if (r.type === 'quoted' || r.type === 'retweeted') {
+      const rt = tweetsById.get(r.id);
+      if (!rt) continue;
+      const rkeys = rt.attachments?.media_keys ?? [];
+      for (const rk of rkeys) {
+        const m2 = mediaByKey.get(rk!);
+        const u2 = imageFromMedia(m2 || null);
+        if (u2) return u2;
+      }
+    }
+  }
+  return null;
+}
 
 export type XItem = {
   topic: string;
@@ -39,7 +81,7 @@ export type XItem = {
 };
 
 function env(name: string, dflt = '') { return process.env[name] ?? dflt; }
-function ttl() { return Number(process.env.X_CACHE_TTL_SECONDS ?? 600); }
+function ttl() { return Number(process.env.X_CACHE_TTL_SECONDS ?? 1800); } // 30 minutes default
 
 function ck(parts: Record<string,string|number|boolean|undefined>) {
   return 'trenderai:x:' + Object.entries(parts).filter(([,v])=>v!==undefined).map(([k,v])=>`${k}=${v}`).join('|');
@@ -54,9 +96,21 @@ function bearer(): string {
 async function fromCache<T>(key: string, fetcher: ()=>Promise<T>, seconds = ttl()): Promise<T> {
   const hit = await redis().get(key);
   if (hit) return JSON.parse(hit) as T;
-  const data = await fetcher();
-  await redis().setex(key, seconds, JSON.stringify(data));
-  return data;
+  
+  try {
+    const data = await fetcher();
+    await redis().setex(key, seconds, JSON.stringify(data));
+    return data;
+  } catch (error: any) {
+    // If we hit rate limit, cache empty result for a shorter time to avoid repeated failures
+    if (error.message?.includes('429')) {
+      console.warn('Rate limit hit, caching empty result for 5 minutes');
+      const emptyData = key.includes('trends') ? [] : { data: [], includes: { media: [], users: [] } };
+      await redis().setex(key, 300, JSON.stringify(emptyData)); // 5 minutes
+      return emptyData as T;
+    }
+    throw error;
+  }
 }
 
 function imageFromMedia(m?: XMedia | null): string | null {
@@ -85,7 +139,13 @@ async function v2(path: string, params: Record<string,string>): Promise<any> {
   const r = await fetch(url.toString(), {
     headers: { Authorization: `Bearer ${bearer()}`, 'User-Agent':'TrenderAI-X/1.0' }
   });
-  if (!r.ok) throw new Error(`X v2 ${r.status}`);
+  if (!r.ok) {
+    if (r.status === 429) {
+      console.warn('X API rate limit hit (v2), will retry later');
+      return { data: [], includes: { media: [], users: [] } };
+    }
+    throw new Error(`X v2 ${r.status}`);
+  }
   return r.json();
 }
 
@@ -95,7 +155,13 @@ async function v11(path: string, params: Record<string,string>): Promise<any> {
   const r = await fetch(url.toString(), {
     headers: { Authorization: `Bearer ${bearer()}`, 'User-Agent':'TrenderAI-X/1.0' }
   });
-  if (!r.ok) throw new Error(`X v1.1 ${r.status}`);
+  if (!r.ok) {
+    if (r.status === 429) {
+      console.warn('X API rate limit hit (v1.1), will retry later');
+      return [];
+    }
+    throw new Error(`X v1.1 ${r.status}`);
+  }
   return r.json();
 }
 
@@ -106,12 +172,12 @@ export async function searchRecent(query: string, max = 50): Promise<XItem[]> {
     const params = {
       query,
       max_results: String(Math.min(Math.max(max, 10), 100)),
-      'tweet.fields': ['created_at','lang','possibly_sensitive','public_metrics'].join(','),
-      'expansions': ['attachments.media_keys','author_id'].join(','),
-      'media.fields': ['url','preview_image_url','width','height'].join(','),
+      'tweet.fields': ['created_at','lang','possibly_sensitive','public_metrics','referenced_tweets'].join(','),
+      'expansions': ['attachments.media_keys','author_id','referenced_tweets.id','referenced_tweets.id.author_id'].join(','),
+      'media.fields': ['url','preview_image_url','width','height','type'].join(','),
       'user.fields': ['username','name','profile_image_url'].join(',')
     };
-    const j = await v2('/tweets/search/recent', params); // v2 Recent Search
+    const j: XV2Resp = await v2('/tweets/search/recent', params); // v2 Recent Search
     const tweets: XV2Tweet[] = j?.data ?? [];
     const mediaArr: XMedia[] = j?.includes?.media ?? [];
     const users: XUser[] = j?.includes?.users ?? [];
@@ -120,9 +186,7 @@ export async function searchRecent(query: string, max = 50): Promise<XItem[]> {
 
     const now = new Date();
     const items: XItem[] = tweets.map(t => {
-      const keys = t.attachments?.media_keys ?? [];
-      const firstMedia = keys.length ? mediaByKey.get(keys[0]!) : undefined;
-      const img = imageFromMedia(firstMedia || null);
+      const img = resolveMediaUrlFromTweet(t, j.includes ?? {});
       const u = t.author_id ? userById.get(t.author_id) : undefined;
       const username = u?.username ? '@'+u.username : '';
       const short = t.text.replace(/\s+/g,' ').trim().slice(0, 140);
@@ -178,27 +242,40 @@ export async function trendsByWOEID(woeid: number): Promise<XItem[]> {
 
     items.sort((a,b)=>b.score - a.score);
     return items.slice(0, 100);
-  }, 15*60);
+  }, 30*60); // 30 minutes for trends
 }
 
 /** Convenience to ingest default queries + default WOEIDs */
 export async function fetchDefaultXSet(): Promise<XItem[]> {
   const all: XItem[] = [];
   const queries = (env('X_DEFAULT_QUERIES') || '').split(',').map(s=>s.trim()).filter(Boolean);
-  for (const q of queries) {
-    const chunk = await searchRecent(q, 80);
-    all.push(...chunk);
+  
+  // Limit to 1 query to avoid rate limits during testing
+  const limitedQueries = queries.slice(0, 1);
+  console.log(`X: Processing ${limitedQueries.length}/${queries.length} queries to avoid rate limits`);
+  
+  for (const q of limitedQueries) {
+    try {
+      const chunk = await searchRecent(q, 50); // Reduced from 80 to 50
+      all.push(...chunk);
+      console.log(`X: Got ${chunk.length} tweets for query "${q}"`);
+    } catch (error: any) {
+      console.warn(`X: Failed to fetch tweets for "${q}":`, error.message);
+    }
   }
-  const woeids = (env('X_TRENDS_WOEIDS') || '').split(',').map(s=>Number(s.trim())).filter(Boolean);
-  for (const w of woeids) {
-    const chunk = await trendsByWOEID(w);
-    all.push(...chunk);
-  }
+  
+  // Skip trends for now to avoid rate limits
+  // const woeids = (env('X_TRENDS_WOEIDS') || '').split(',').map(s=>Number(s.trim())).filter(Boolean);
+  // for (const w of woeids) {
+  //   const chunk = await trendsByWOEID(w);
+  //   all.push(...chunk);
+  // }
+  
   // final sort/dedupe by URL or topic
   const map = new Map<string, XItem>();
   for (const it of all) {
     const k = it.url || it.topic;
     if (!map.has(k)) map.set(k, it);
   }
-  return Array.from(map.values()).sort((a,b)=>b.score - a.score).slice(0, 200);
+  return Array.from(map.values()).sort((a,b)=>b.score - a.score).slice(0, 100); // Reduced from 200 to 100
 }
