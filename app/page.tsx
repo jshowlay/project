@@ -359,6 +359,7 @@ export default function Page() {
                 <option value="coingecko">CoinGecko</option>
                 <option value="alphavantage">Alpha Vantage</option>
                 <option value="google_trends">Google Trends</option>
+                <option value="instagram">Instagram</option>
               </select>
               <button onClick={commitSearch} className="btn-accent">
                 {loading ? 'Loading…' : 'Search'}

@@ -311,6 +311,17 @@ docker compose -f docker-compose.prod.yml exec web npx prisma migrate deploy
 - `/api/img?u=<remote>` safely proxies remote images with caching and size guards—no need to whitelist domains in `next.config.js`.
 - Ingestion extracts thumbnails from Reddit (preview/thumbnail), YouTube (snippet.thumbnails), NewsAPI (`urlToImage`), CoinGecko (`image.large/small`), and Google Trends Trending Now (`image`).
 
+## Instagram Integration (Graph API)
+- Requires an **Instagram Business/Creator** account linked to a Facebook Page and a Meta app with Hashtag Search permissions.
+- Set env:
+  - `IG_USER_ID` — the numeric IG user id (Graph).
+  - `IG_LONG_LIVED_TOKEN` — 60-day long-lived token (renew periodically).
+  - `IG_DEFAULT_HASHTAGS` — comma list of hashtags to ingest (no `#`).
+- Test locally:
+  ```bash
+  curl "http://localhost:3000/api/instagram/hashtag?tag=ai"
+  ```
+
 ## 📄 License
 
 MIT License - see LICENSE file for details.

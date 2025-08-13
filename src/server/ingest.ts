@@ -1,5 +1,6 @@
 import { activeAdapters } from '../integrations';
 import { ingestGoogleTrends } from '@/integrations/googleTrends';
+import { fetchDefaultHashtagSet } from '@/integrations/instagram';
 import { prisma, redis } from './db';
 import pino from 'pino';
 
@@ -51,6 +52,57 @@ function bucketHour(d: Date) {
   const t = d.getTime();
   const hour = Math.floor(t / 3600000) * 3600000;
   return new Date(hour);
+}
+
+async function ingestInstagram() {
+  const prisma = (await import('@/server/db')).prisma;
+  const items = await fetchDefaultHashtagSet();
+  let inserted = 0;
+
+  for (const it of items) {
+    const observedAt = it.observedAt ?? new Date();
+    const observedBucket = new Date(Math.floor(observedAt.getTime()/3600000)*3600000);
+    const tags = Array.isArray(it.tags) ? it.tags : [];
+    const topic = it.topic;
+
+    try {
+      await prisma.trendRecord.upsert({
+        where: {
+          source_topic_observedBucket: {
+            source: 'instagram',
+            topic,
+            observedBucket
+          }
+        },
+        create: {
+          source: 'instagram',
+          topic,
+          score: it.score ?? 0,
+          delta24h: null,
+          url: it.url ?? null,
+          region: it.region ?? null,
+          tags,
+          raw: it.meta ?? {},
+          observedAt,
+          observedBucket,
+          language: null,
+          imageUrl: it.imageUrl ?? null,
+          images: it.imageUrl ? [it.imageUrl] : []
+        },
+        update: {
+          score: it.score ?? 0,
+          url: it.url ?? null,
+          tags,
+          observedAt,
+          imageUrl: it.imageUrl ?? null
+        }
+      });
+      inserted++;
+    } catch {
+      // ignore row-level failures to keep the loop resilient
+    }
+  }
+  return inserted;
 }
 
 export async function ingestAll() {
@@ -140,6 +192,17 @@ export async function ingestAll() {
     }
   } catch (error: any) {
     log.error({ err: error }, 'Google Trends ingestion failed');
+  }
+
+  // Ingest Instagram if configured
+  try {
+    if (process.env.IG_LONG_LIVED_TOKEN && process.env.IG_USER_ID) {
+      await ingestInstagram();
+      sources.push('instagram');
+      log.info('Instagram ingestion completed');
+    }
+  } catch (error: any) {
+    log.error({ err: error }, 'Instagram ingestion failed');
   }
 
   // hot cache
