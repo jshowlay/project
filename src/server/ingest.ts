@@ -1,6 +1,7 @@
 import { activeAdapters } from '../integrations';
 import { ingestGoogleTrends } from '@/integrations/googleTrends';
 import { fetchDefaultHashtagSet } from '@/integrations/instagram';
+import { fetchDefaultXSet } from '@/integrations/x';
 import { getOpenGraph, looksLowRes } from '@/server/opengraph';
 import { upgradeImageUrl } from '@/server/image_rules';
 import { prisma, redis } from './db';
@@ -140,6 +141,60 @@ async function ingestInstagram() {
   return inserted;
 }
 
+async function ingestTwitter() {
+  const prisma = (await import('@/server/db')).prisma;
+  const items = await fetchDefaultXSet();
+  let inserted = 0;
+
+  for (const it of items) {
+    const observedAt = it.observedAt ?? new Date();
+    const observedBucket = new Date(Math.floor(observedAt.getTime()/3600000)*3600000);
+    const tags = Array.isArray(it.tags) ? it.tags : [];
+    const topic = it.topic; // contains [tw:id] for uniqueness
+
+    // upgrade image URL if available (pbs.twimg.com → name=orig, etc.)
+    const imgUrl = it.imageUrl ? upgradeImageUrl(it.imageUrl) : null;
+
+    try {
+      await prisma.trendRecord.upsert({
+        where: {
+          source_topic_observedBucket: {
+            source: 'twitter',
+            topic,
+            observedBucket
+          }
+        },
+        create: {
+          source: 'twitter',
+          topic,
+          score: it.score ?? 0,
+          delta24h: null,
+          url: it.url ?? null,
+          region: it.region ?? null,
+          tags,
+          raw: it.meta ?? {},
+          observedAt,
+          observedBucket,
+          language: null,
+          imageUrl: imgUrl,
+          images: imgUrl ? [imgUrl] : []
+        },
+        update: {
+          score: it.score ?? 0,
+          url: it.url ?? null,
+          tags,
+          observedAt,
+          imageUrl: imgUrl ?? null
+        }
+      });
+      inserted++;
+    } catch {
+      // ignore single-row failures
+    }
+  }
+  return inserted;
+}
+
 export async function ingestAll() {
   const adapters = activeAdapters();
   const results = await Promise.allSettled(adapters.map(a => a.fetchTrends({})));
@@ -242,6 +297,17 @@ export async function ingestAll() {
     }
   } catch (error: any) {
     log.error({ err: error }, 'Instagram ingestion failed');
+  }
+
+  // Ingest X (Twitter) if configured
+  try {
+    if (process.env.X_BEARER_TOKEN) {
+      await ingestTwitter();
+      sources.push('twitter');
+      log.info('X (Twitter) ingestion completed');
+    }
+  } catch (error: any) {
+    log.error({ err: error }, 'X (Twitter) ingestion failed');
   }
 
   // hot cache

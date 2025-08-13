@@ -330,6 +330,19 @@ docker compose -f docker-compose.prod.yml exec web npx prisma migrate deploy
   curl "http://localhost:3000/api/tools/opengraph?u=https://example.com"
   ```
 
+## X (Twitter) integration
+- **Recent Search (v2)**: `/2/tweets/search/recent` with expansions for media & users.
+- **Trends (v1.1)**: `/1.1/trends/place.json` by WOEID (e.g., 23424977 = US).
+- Set these env vars:
+  - `X_BEARER_TOKEN` (required)
+  - `X_DEFAULT_QUERIES` (comma list)
+  - `X_TRENDS_WOEIDS` (comma list of WOEIDs)
+- Try it:
+  ```bash
+  curl "http://localhost:3000/api/x/search?q=ai"
+  curl "http://localhost:3000/api/x/trends?woeid=23424977"
+  ```
+
 ## 📄 License
 
 MIT License - see LICENSE file for details.
