@@ -1,6 +1,7 @@
 import { activeAdapters } from '../integrations';
 import { ingestGoogleTrends } from '@/integrations/googleTrends';
 import { fetchDefaultHashtagSet } from '@/integrations/instagram';
+import { getOpenGraph, looksLowRes } from '@/server/opengraph';
 import { prisma, redis } from './db';
 import pino from 'pino';
 
@@ -50,6 +51,32 @@ function pickImageUrl(it: any): { imageUrl?: string | null; images?: string[] } 
   const uniq = Array.from(new Set(candidates.map(String)));
   const first = uniq.find(u => /^https?:\/\//.test(u));
   return { imageUrl: first || null, images: uniq.slice(0, 6) };
+}
+
+async function tryOgUpgrade(current: { imageUrl?: string | null; images?: string[] }, pageUrl?: string | null) {
+  const cur = current?.imageUrl ?? null;
+  if (!pageUrl) return current;
+  // Only try if nothing or looks low-res
+  if (cur && !looksLowRes(cur)) return current;
+
+  const og = await getOpenGraph(pageUrl);
+  if (!og || !og.images?.length) return current;
+
+  // Prefer the first OG image, but if multiple exist and we have width/height hints, prefer the largest-looking
+  const imgs = og.images;
+  // Heuristic: choose the candidate with the longest width/height hint in URL or explicit OG width
+  const scored = imgs.map((u) => {
+    // parse .../1200x630/... or ?w=1200 etc.
+    let s = 0;
+    const m1 = u.match(/\b(\d{3,4})x(\d{3,4})\b/); if (m1) s = Math.max(s, Number(m1[1]) * Number(m1[2]));
+    const m2 = u.match(/\b(w|width)=(\d{3,4})\b/i); if (m2) s = Math.max(s, Number(m2[2]) * 600);
+    const m3 = u.match(/\b(h|height)=(\d{3,4})\b/i); if (m3) s = Math.max(s, 1200 * Number(m3[2]));
+    return { u, s };
+  }).sort((a,b) => b.s - a.s);
+  const best = (scored[0]?.u ?? imgs[0]) || cur;
+
+  const merged = Array.from(new Set([best, ...(current.images ?? []), ...imgs]));
+  return { imageUrl: best || cur, images: merged.slice(0, 8) };
 }
 
 function bucketHour(d: Date) {
@@ -126,7 +153,7 @@ export async function ingestAll() {
         try {
           const observedAt = it.observedAt ? new Date(it.observedAt) : new Date();
           const observedBucket = bucketHour(observedAt);
-          const img = pickImageUrl(it);
+          const img = await tryOgUpgrade(pickImageUrl(it), it.url);
           await prisma.trendRecord.upsert({
             where: {
               source_topic_observedBucket: {

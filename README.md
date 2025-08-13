@@ -322,6 +322,14 @@ docker compose -f docker-compose.prod.yml exec web npx prisma migrate deploy
   curl "http://localhost:3000/api/instagram/hashtag?tag=ai"
   ```
 
+### Open Graph image upgrades
+- When a record's `imageUrl` is missing or appears low-res, we fetch the article page and read its Open Graph/Twitter image tags to upgrade the thumbnail.
+- Cache: Redis (`OG_CACHE_TTL_SECONDS`, default 1 day).
+- Debug a URL:
+  ```bash
+  curl "http://localhost:3000/api/tools/opengraph?u=https://example.com"
+  ```
+
 ## 📄 License
 
 MIT License - see LICENSE file for details.
