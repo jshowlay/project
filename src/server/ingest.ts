@@ -2,6 +2,7 @@ import { activeAdapters } from '../integrations';
 import { ingestGoogleTrends } from '@/integrations/googleTrends';
 import { fetchDefaultHashtagSet } from '@/integrations/instagram';
 import { getOpenGraph, looksLowRes } from '@/server/opengraph';
+import { upgradeImageUrl } from '@/server/image_rules';
 import { prisma, redis } from './db';
 import pino from 'pino';
 
@@ -73,9 +74,12 @@ async function tryOgUpgrade(current: { imageUrl?: string | null; images?: string
     const m3 = u.match(/\b(h|height)=(\d{3,4})\b/i); if (m3) s = Math.max(s, 1200 * Number(m3[2]));
     return { u, s };
   }).sort((a,b) => b.s - a.s);
-  const best = (scored[0]?.u ?? imgs[0]) || cur;
+  const bestRaw = (scored[0]?.u ?? imgs[0]) || cur;
+  const best = bestRaw ? upgradeImageUrl(bestRaw) : bestRaw;
 
-  const merged = Array.from(new Set([best, ...(current.images ?? []), ...imgs]));
+  const merged = Array.from(
+    new Set([best ?? '', ...(current.images ?? []), ...imgs].filter(Boolean).map(upgradeImageUrl))
+  );
   return { imageUrl: best || cur, images: merged.slice(0, 8) };
 }
 
@@ -153,7 +157,11 @@ export async function ingestAll() {
         try {
           const observedAt = it.observedAt ? new Date(it.observedAt) : new Date();
           const observedBucket = bucketHour(observedAt);
-          const img = await tryOgUpgrade(pickImageUrl(it), it.url);
+          let img = await tryOgUpgrade(pickImageUrl(it), it.url);
+          // Apply hi-res upgrade to the best candidate AND to the list
+          const upgradedBest = img.imageUrl ? upgradeImageUrl(img.imageUrl) : null;
+          const upgradedList = Array.from(new Set((img.images ?? []).map(upgradeImageUrl)));
+          img = { imageUrl: upgradedBest ?? img.imageUrl ?? null, images: upgradedList };
           await prisma.trendRecord.upsert({
             where: {
               source_topic_observedBucket: {
