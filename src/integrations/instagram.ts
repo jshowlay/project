@@ -68,10 +68,18 @@ async function getHashtagId(userId: string, hashtag: string): Promise<string | n
     url.searchParams.set('user_id', userId);
     url.searchParams.set('q', hashtag.replace(/^#/, ''));
     withToken(url);
+    console.log(`Instagram: Searching for hashtag "${hashtag}" with URL: ${url.toString().replace(/access_token=[^&]+/, 'access_token=***')}`);
     const r = await fetch(url.toString(), { headers: authHeaders() });
-    if (!r.ok) return null;
+    console.log(`Instagram: Hashtag search response status: ${r.status}`);
+    if (!r.ok) {
+      const errorText = await r.text();
+      console.log(`Instagram: Hashtag search error: ${errorText}`);
+      return null;
+    }
     const j = await r.json();
+    console.log(`Instagram: Hashtag search response:`, JSON.stringify(j, null, 2));
     const id = j?.data?.[0]?.id ? String(j.data[0].id) : null;
+    console.log(`Instagram: Found hashtag ID: ${id}`);
     return id;
   });
 }
@@ -133,9 +141,17 @@ function scoreFor(m: Media): number {
 
 export async function fetchHashtagItems(hashtag: string): Promise<IgTrendsItem[]> {
   const userId = env('IG_USER_ID');
-  if (!userId) return [];
+  console.log(`Instagram: Starting fetch for hashtag "${hashtag}", userId: ${userId}`);
+  if (!userId) {
+    console.log(`Instagram: No userId configured`);
+    return [];
+  }
   const id = await getHashtagId(userId, hashtag);
-  if (!id) return [];
+  console.log(`Instagram: Got hashtag ID: ${id}`);
+  if (!id) {
+    console.log(`Instagram: No hashtag ID found for "${hashtag}"`);
+    return [];
+  }
 
   const [topMedia, recentMedia] = await Promise.all([
     getMediaForHashtag(id, userId, 'top_media'),

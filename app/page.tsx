@@ -455,7 +455,7 @@ export default function Page() {
                   return (
                     <div key={it.id ?? it.topic + String(it.observedAt)} className="rounded-2xl p-4" style={{ background:'#111', border:'1px solid #222' }}>
                       {it.imageUrl && (
-                        <CardImage remoteUrl={String(it.imageUrl)} alt={String(it.topic)} ratio="16/9" widthHint={520} />
+                        <CardImage remoteUrl={String(it.imageUrl)} alt={String(it.topic)} ratio="16/9" />
                       )}
                       <div className="flex items-center justify-between">
                         <span className="text-sm uppercase tracking-wide" style={{ color:'var(--accent)' }}>{it.source}</span>

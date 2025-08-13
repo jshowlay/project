@@ -21,10 +21,14 @@ function pickImageUrl(it: any): { imageUrl?: string | null; images?: string[] } 
   if (raw?.url_overridden_by_dest && /^https?:\/\//.test(raw.url_overridden_by_dest)) candidates.push(raw.url_overridden_by_dest);
   if (raw?.preview?.images?.[0]?.source?.url) candidates.push(String(raw.preview.images[0].source.url).replace(/&amp;/g,'&'));
 
-  // YouTube
+  // YouTube - prioritize highest resolution
+  if (raw?.thumbnails?.maxres?.url) candidates.push(raw.thumbnails.maxres.url);
+  if (raw?.thumbnails?.standard?.url) candidates.push(raw.thumbnails.standard.url);
   if (raw?.thumbnails?.high?.url) candidates.push(raw.thumbnails.high.url);
   if (raw?.thumbnails?.medium?.url) candidates.push(raw.thumbnails.medium.url);
   if (raw?.thumbnails?.default?.url) candidates.push(raw.thumbnails.default.url);
+  if (raw?.snippet?.thumbnails?.maxres?.url) candidates.push(raw.snippet.thumbnails.maxres.url);
+  if (raw?.snippet?.thumbnails?.standard?.url) candidates.push(raw.snippet.thumbnails.standard.url);
   if (raw?.snippet?.thumbnails?.high?.url) candidates.push(raw.snippet.thumbnails.high.url);
 
   // NewsAPI
