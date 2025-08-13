@@ -291,32 +291,48 @@ export default function Page() {
     <div className="min-h-screen" style={{ background:'#000', color:'#fff' }}>
       <div className="mx-auto max-w-6xl p-6">
         <Toast message={error} onClose={()=>setError('')} />
-        <div className="flex items-center justify-between">
-          <Logo size="lg" />
-        </div>
+        {/* Header: Logo + Inline Category Nav + (optional) right-side actions */}
+        <header className="w-full flex items-center gap-4">
+          {/* Left: Logo */}
+          <div className="shrink-0">
+            <Logo size="lg" />
+          </div>
 
-        {/* CATEGORY BAR */}
-        <div className="mt-4 flex items-center gap-2 overflow-x-auto no-scrollbar">
-          <button
-            onClick={clearCategory}
-            className={catId ? "px-3 py-1 rounded-full text-sm" : "px-3 py-1 rounded-full text-sm btn-accent"}
-            style={catId ? { background:'#111', color:'#fff', border:'1px solid #222' } : {}}
+          {/* Center: Categories (inline, scrollable on small screens) */}
+          <nav
+            className="flex-1 overflow-x-auto no-scrollbar"
+            aria-label="Primary categories"
           >
-            All
-          </button>
-          {CATEGORIES.map(cat => (
-            <button
-              key={cat.id}
-              onClick={()=>applyCategory(cat.id)}
-              className={`px-3 py-1 rounded-full text-sm inline-flex items-center gap-2 ${catId === cat.id ? 'btn-accent' : ''}`}
-              style={catId !== cat.id ? { background:'#111', color:'#fff', border:'1px solid #222' } : {}}
-              title={cat.label}
-            >
-              <span>{cat.emoji ?? '•'}</span>
-              <span>{cat.label}</span>
-            </button>
-          ))}
-        </div>
+            <div className="flex items-center gap-2 min-w-max">
+              <button
+                onClick={clearCategory}
+                className={catId ? "px-3 py-1 rounded-full text-sm" : "px-3 py-1 rounded-full text-sm btn-accent"}
+                style={catId ? { background:'#111', color:'#fff', border:'1px solid #222' } : {}}
+              >
+                All
+              </button>
+              {CATEGORIES.map(cat => (
+                <button
+                  key={cat.id}
+                  onClick={()=>applyCategory(cat.id)}
+                  className={`px-3 py-1 rounded-full text-sm inline-flex items-center gap-2 ${catId === cat.id ? 'btn-accent' : ''}`}
+                  style={catId !== cat.id ? { background:'#111', color:'#fff', border:'1px solid #222' } : {}}
+                  title={cat.label}
+                >
+                  <span>{cat.emoji ?? '•'}</span>
+                  <span className="whitespace-nowrap">{cat.label}</span>
+                </button>
+              ))}
+            </div>
+          </nav>
+
+          {/* Right: optional actions spot (keep empty or add buttons later) */}
+          <div className="shrink-0 hidden sm:flex items-center gap-2">
+            {/* example placeholder:
+            <button onClick={commitSearch} className="btn-accent">Refresh</button>
+            */}
+          </div>
+        </header>
 
         {/* Search controls (optional refinement) */}
         <div className="mt-4">
