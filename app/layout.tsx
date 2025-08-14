@@ -2,6 +2,7 @@ import './globals.css';
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import { bootOnce } from '@/server/boot';
+import { DensityProvider } from '@/components/DensityProvider';
 bootOnce();
 
 const inter = Inter({ subsets: ['latin'] });
@@ -20,7 +21,9 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body className={`${inter.className} bg-black text-white antialiased`}>
-        {children}
+        <DensityProvider>
+          {children}
+        </DensityProvider>
       </body>
     </html>
   );

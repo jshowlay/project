@@ -15,8 +15,9 @@ import PrimaryNav from '@/components/PrimaryNav';
 import MobileNavBar from '@/components/MobileNavBar';
 import CommandPalette from '@/components/CommandPalette';
 import StickyHeader from '@/components/StickyHeader';
-import DensityToggle from '@/components/DensityToggle';
-
+import SavedPostsBadge from '@/components/SavedPostsBadge';
+import SavedPostsSidebar from '@/components/SavedPostsSidebar';
+import CategoriesSidebar from '@/components/CategoriesSidebar';
 
 type Item = {
   id?: string;
@@ -337,8 +338,7 @@ export default function Page() {
               </nav>
 
               {/* Right: optional actions spot (keep empty or add buttons later) */}
-              <div className="shrink-0 hidden sm:flex items-center gap-4">
-                <DensityToggle />
+              <div className="shrink-0 hidden sm:flex items-center gap-2">
                 <button onClick={()=>postJSON('/api/x/stream/start', {})} className="btn-accent">Live On</button>
                 <button onClick={()=>postJSON('/api/x/stream/stop', {})} className="px-3 py-2 rounded-xl" style={{ background:'#111', color:'#fff', border:'1px solid #222' }}>Live Off</button>
               </div>
@@ -353,181 +353,192 @@ export default function Page() {
         <MobileNavBar />
         <div className="h-12 sm:hidden" />
 
-        {/* Main Content */}
-        <section className="mt-4">
-          {/* Search controls */}
-          <div className="relative">
-            <div className="relative">
-              <div className="flex flex-wrap gap-3 items-center">
-                <input
-                  id="global-search"
-                  ref={inputRef}
-                  value={q}
-                  onChange={(e)=>{ setQ(e.target.value); setCatId(''); }} // typing clears category
-                  onKeyDown={onKeyDown}
-                  placeholder={catId ? `Refine ${getCategory(catId)?.label}…` : 'Search (e.g., ai agents OR robotics -crypto, tag:crypto since:7d sort:score)…'}
-                  className="px-3 py-2 rounded-xl text-black flex-1 min-w-[260px]"
-                />
-                <select
-                  value={uiSource}
-                  onChange={(e)=>{ setUiSource(e.target.value); setCatId(''); }}
-                  className="px-3 py-2 rounded-xl text-black"
-                  title="Filter by Source"
-                >
-                  <option value="">All sources</option>
-                  <option value="reddit">Reddit</option>
-                  <option value="youtube">YouTube</option>
-                  <option value="newsapi">News</option>
-                  <option value="coingecko">CoinGecko</option>
-                  <option value="alphavantage">Alpha Vantage</option>
-                  <option value="google_trends">Google Trends</option>
-                  <option value="instagram">Instagram</option>
-                  <option value="twitter">X (Twitter)</option>
-                </select>
-                <button onClick={commitSearch} className="btn-accent">
-                  {loading ? 'Loading…' : 'Search'}
-                </button>
-                <button onClick={async ()=>{ try {
-                  const url = buildUrl(q, uiSource, catId).toString();
-                  await navigator.clipboard.writeText(url);
-                  setCopied(true); setTimeout(()=>setCopied(false),1200);
-                } catch {} }} className="px-3 py-2 rounded-xl font-medium"
-                  style={{ background:'#111', color:'var(--accent)', border:'1px solid #222' }}>
-                  {copied ? 'Copied!' : 'Copy link'}
-                </button>
-              </div>
-              <SearchSuggest input={q} anchorRef={inputRef} onApply={(next)=> { setQ(next); setCatId(''); }} />
-            </div>
+        {/* Single Column Layout with Categories at Top */}
+        <div className="mt-4">
+          {/* Categories Section */}
+          <div className="mb-6">
+            <CategoriesSidebar 
+              selectedCategory={catId} 
+              onCategorySelect={(categoryId) => setCatId(categoryId || '')} 
+            />
           </div>
 
-          {/* Operator chips */}
-          <div className="mt-3 flex flex-wrap density-chips">
-            {tokens.map((t, idx) => {
-              const labelMap: Record<string, string> = {
-                tag: 'tag', source: 'source', region: 'region',
-                since: 'since', until: 'until', before: 'before',
-                sort: 'sort', score: 'score', delta24h: 'delta24h'
-              };
-              const label = `${labelMap[t.key] ?? t.key}:${t.value}`;
-              return <Chip key={`${t.start}-${t.end}-${idx}`} label={label} onRemove={()=>removeToken(t)} />;
-            })}
-            {uiSource && (
-              <Chip label={`source:${uiSource} (UI)`} onRemove={()=>setUiSource('')} />
-            )}
-            {(tokens.length > 0 || uiSource) && (
-              <button onClick={clearAllTokens} className="underline text-sm" style={{ color:'var(--accent)' }}>
-                Clear all
-              </button>
-            )}
-          </div>
-
-          {/* Recent searches + Import/Export */}
-          <div className="mt-5">
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="text-sm uppercase tracking-wide" style={{ color:'var(--accent)' }}>Recent searches</h2>
-              <div className="flex gap-3">
-                <button onClick={exportJSON} className="text-sm underline" style={{ color:'var(--accent)' }}>Export</button>
-                <button onClick={()=>{ fileInputRef.current?.setAttribute('data-mode','merge'); fileInputRef.current?.click(); }} className="text-sm underline" style={{ color:'var(--accent)' }}>Import (merge)</button>
-                <button onClick={()=>{ fileInputRef.current?.setAttribute('data-mode','replace'); fileInputRef.current?.click(); }} className="text-sm underline" style={{ color:'var(--accent)' }}>Import (replace)</button>
-                {recents.length > 0 && (
-                  <button onClick={() => { if (confirm('Clear all recent searches?')) { clearRecents(); setRecents([]); } }} className="text-sm underline" style={{ color:'var(--accent)' }}>
-                    Clear history
-                  </button>
-                )}
-              </div>
-            </div>
-            <input ref={fileInputRef} type="file" accept="application/json" onChange={(e)=>{
-              const file = e.target.files?.[0]; if (!file) return;
-              const mode = (e.currentTarget.getAttribute('data-mode') as 'merge'|'replace') || 'merge';
-              const reader = new FileReader();
-              reader.onload = () => {
-                const text = String(reader.result || '');
-                try {
-                  const importedRecents = JSON.parse(text);
-                  setRecents(importedRecents);
-                  if (fileInputRef.current) fileInputRef.current.value = '';
-                } catch (e) {
-                  setError('Failed to import recents: Invalid JSON file.');
-                  try { const Sentry = require('@sentry/nextjs'); Sentry.captureException?.(e); } catch {}
-                }
-              };
-              reader.readAsText(file);
-            }} className="hidden" />
-            {recents.length === 0 ? (
-              <div className="text-sm opacity-70">Your recent searches will appear here.</div>
-            ) : (
-              <div className="flex flex-wrap density-chips">
-                {recents.map(r => (
-                  <RecentChip
-                    key={r.id}
-                    r={r}
-                    onRun={(qq)=>{ setCatId(''); runRecent(qq); }}
-                    onPin={(id)=> setRecents(togglePin(id))}
-                    onRemove={(id)=> setRecents(removeRecent(id))}
+          {/* Main Content */}
+          <div className="grid gap-5 grid-cols-1 lg:grid-cols-[1fr_320px]">
+            {/* Main Content Area */}
+            <section>
+              {/* Search controls */}
+              <div className="relative">
+                <div className="flex flex-wrap gap-3 items-center">
+                  <input
+                    id="global-search"
+                    ref={inputRef}
+                    value={q}
+                    onChange={(e)=>{ setQ(e.target.value); setCatId(''); }} // typing clears category
+                    onKeyDown={onKeyDown}
+                    placeholder={catId ? `Refine ${getCategory(catId)?.label}…` : 'Search (e.g., ai agents OR robotics -crypto, tag:crypto since:7d sort:score)…'}
+                    className="px-3 py-2 rounded-xl text-black flex-1 min-w-[260px]"
                   />
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* RESULTS GRID — 2 columns on ≥sm, 1 on mobile, variable gap */}
-          <div className="mt-6 grid grid-cols-1 sm:grid-cols-2" style={{ gap: 'var(--grid-gap)' }}>
-            {loading && items.length === 0 && Array.from({length:6}).map((_,i)=><SkeletonCard key={i} />)}
-            {items.map(it=>{
-              const { term, geo } = deriveTermAndGeo(it.topic, it.region);
-              return (
-                <div
-                  key={`${it.source}:${it.topic}:${String((it as any).observedAt ?? '')}`}
-                  className="rounded-2xl border border-[#1b1b1b] bg-[#0f0f0f]"
-                  style={{ padding: 'var(--card-pad)' }}
-                >
-                  {it.imageUrl && (
-                    <CardImage remoteUrl={String(it.imageUrl)} alt={String(it.topic)} ratio="16/9" />
-                  )}
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm uppercase tracking-wide" style={{ color:'var(--accent)' }}>{it.source}</span>
-                    <span className="text-sm">Score: {Math.round(it.score)}</span>
-                  </div>
-                  <div className="mt-2 text-lg font-medium">{it.topic}</div>
-                  <div className="mt-1 text-sm opacity-80">Observed: {new Date(it.observedAt).toLocaleString()}</div>
-                  {it.delta24h!=null && <div className="mt-1 text-sm">Δ24h: {Number(it.delta24h).toFixed(2)}%</div>}
-                  {it.source === 'google_trends' && (
-                    <div className="mt-2">
-                      <TrendSparkline term={term} geo={geo} width={160} height={36} />
-                    </div>
-                  )}
-                  <div className="mt-3 flex flex-wrap density-chips">
-                    {asTagArray((it as any).tags).slice(0,5).map(tag=>(
-                      <span key={tag} className="text-xs px-2 py-1 rounded-full" style={{ background:'#222' }}>#{tag}</span>
-                    ))}
-                  </div>
-                  <div className="mt-3">
-                    <ShareButtons 
-                      title={it.topic} 
-                      url={it.url} 
-                      source={it.source} 
-                      tags={asTagArray((it as any).tags)}
-                    />
-                  </div>
-                  {it.url && <a href={it.url} target="_blank" className="mt-3 inline-block underline" style={{ color:'var(--accent)' }}>Open</a>}
+                  <select
+                    value={uiSource}
+                    onChange={(e)=>{ setUiSource(e.target.value); setCatId(''); }}
+                    className="px-3 py-2 rounded-xl text-black"
+                    title="Filter by Source"
+                  >
+                    <option value="">All sources</option>
+                    <option value="reddit">Reddit</option>
+                    <option value="youtube">YouTube</option>
+                    <option value="newsapi">News</option>
+                    <option value="coingecko">CoinGecko</option>
+                    <option value="alphavantage">Alpha Vantage</option>
+                    <option value="google_trends">Google Trends</option>
+                    <option value="instagram">Instagram</option>
+                    <option value="twitter">X (Twitter)</option>
+                  </select>
+                  <button onClick={commitSearch} className="btn-accent">
+                    {loading ? 'Loading…' : 'Search'}
+                  </button>
+                  <button onClick={async ()=>{ try {
+                    const url = buildUrl(q, uiSource, catId).toString();
+                    await navigator.clipboard.writeText(url);
+                    setCopied(true); setTimeout(()=>setCopied(false),1200);
+                  } catch {} }} className="px-3 py-2 rounded-xl font-medium"
+                    style={{ background:'#111', color:'var(--accent)', border:'1px solid #222' }}>
+                    {copied ? 'Copied!' : 'Copy link'}
+                  </button>
                 </div>
-              );
-            })}
+            <SearchSuggest input={q} anchorRef={inputRef} onApply={(next)=> { setQ(next); setCatId(''); }} />
           </div>
+        </div>
 
-          {/* Load more */}
-          {items.length < total && (
-            <div className="mt-6 flex justify-center">
-              <button
-                onClick={()=>load(page+1, { append:true, pushHistory:true })}
-                className="btn-accent"
-                disabled={loading}
-              >
-                {loading ? 'Loading…' : 'Load more'}
-              </button>
+        {/* Operator chips */}
+        <div className="mt-3 flex flex-wrap gap-2">
+          {tokens.map((t, idx) => {
+            const labelMap: Record<string, string> = {
+              tag: 'tag', source: 'source', region: 'region',
+              since: 'since', until: 'until', before: 'before',
+              sort: 'sort', score: 'score', delta24h: 'delta24h'
+            };
+            const label = `${labelMap[t.key] ?? t.key}:${t.value}`;
+            return <Chip key={`${t.start}-${t.end}-${idx}`} label={label} onRemove={()=>removeToken(t)} />;
+          })}
+          {uiSource && (
+            <Chip label={`source:${uiSource} (UI)`} onRemove={()=>setUiSource('')} />
+          )}
+          {(tokens.length > 0 || uiSource) && (
+            <button onClick={clearAllTokens} className="underline text-sm" style={{ color:'var(--accent)' }}>
+              Clear all
+            </button>
+          )}
+        </div>
+
+        {/* Recent searches + Import/Export */}
+        <div className="mt-5">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-sm uppercase tracking-wide" style={{ color:'var(--accent)' }}>Recent searches</h2>
+            <div className="flex gap-3">
+              <button onClick={exportJSON} className="text-sm underline" style={{ color:'var(--accent)' }}>Export</button>
+              <button onClick={()=>{ fileInputRef.current?.setAttribute('data-mode','merge'); fileInputRef.current?.click(); }} className="text-sm underline" style={{ color:'var(--accent)' }}>Import (merge)</button>
+              <button onClick={()=>{ fileInputRef.current?.setAttribute('data-mode','replace'); fileInputRef.current?.click(); }} className="text-sm underline" style={{ color:'var(--accent)' }}>Import (replace)</button>
+              {recents.length > 0 && (
+                <button onClick={() => { if (confirm('Clear all recent searches?')) { clearRecents(); setRecents([]); } }} className="text-sm underline" style={{ color:'var(--accent)' }}>
+                  Clear history
+                </button>
+              )}
+            </div>
+          </div>
+          <input ref={fileInputRef} type="file" accept="application/json" onChange={(e)=>{
+            const file = e.target.files?.[0]; if (!file) return;
+            const mode = (e.currentTarget.getAttribute('data-mode') as 'merge'|'replace') || 'merge';
+            const reader = new FileReader();
+            reader.onload = () => {
+              const text = String(reader.result || '');
+              try {
+                const importedRecents = JSON.parse(text);
+                setRecents(importedRecents);
+                if (fileInputRef.current) fileInputRef.current.value = '';
+              } catch (e) {
+                setError('Failed to import recents: Invalid JSON file.');
+                try { const Sentry = require('@sentry/nextjs'); Sentry.captureException?.(e); } catch {}
+              }
+            };
+            reader.readAsText(file);
+          }} className="hidden" />
+          {recents.length === 0 ? (
+            <div className="text-sm opacity-70">Your recent searches will appear here.</div>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {recents.map(r => (
+                <RecentChip
+                  key={r.id}
+                  r={r}
+                  onRun={(qq)=>{ setCatId(''); runRecent(qq); }}
+                  onPin={(id)=> setRecents(togglePin(id))}
+                  onRemove={(id)=> setRecents(removeRecent(id))}
+                />
+              ))}
             </div>
           )}
-        </section>
+        </div>
+
+        {/* Results */}
+        <div className="mt-6 grid sm:grid-cols-2 gap-4">
+          {loading && items.length === 0 && Array.from({length:6}).map((_,i)=><SkeletonCard key={i} />)}
+                          {items.map(it=>{
+                  const { term, geo } = deriveTermAndGeo(it.topic, it.region);
+                  return (
+                    <div key={it.id ?? it.topic + String(it.observedAt)} className="rounded-2xl p-4" style={{ background:'#111', border:'1px solid #222' }}>
+                      {it.imageUrl && (
+                        <CardImage remoteUrl={String(it.imageUrl)} alt={String(it.topic)} ratio="16/9" />
+                      )}
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm uppercase tracking-wide" style={{ color:'var(--accent)' }}>{it.source}</span>
+                        <span className="text-sm">Score: {Math.round(it.score)}</span>
+                      </div>
+                <div className="mt-2 text-lg font-medium">{it.topic}</div>
+                <div className="mt-1 text-sm opacity-80">Observed: {new Date(it.observedAt).toLocaleString()}</div>
+                {it.delta24h!=null && <div className="mt-1 text-sm">Δ24h: {Number(it.delta24h).toFixed(2)}%</div>}
+                {it.source === 'google_trends' && (
+                  <div className="mt-2">
+                    <TrendSparkline term={term} geo={geo} width={160} height={36} />
+                  </div>
+                )}
+                                      <div className="mt-3 flex flex-wrap gap-2">
+                        {asTagArray((it as any).tags).slice(0,5).map(tag=>(
+                          <span key={tag} className="text-xs px-2 py-1 rounded-full" style={{ background:'#222' }}>#{tag}</span>
+                        ))}
+                      </div>
+                      <div className="mt-3">
+                        <ShareButtons 
+                          title={it.topic} 
+                          url={it.url} 
+                          source={it.source} 
+                          tags={asTagArray((it as any).tags)}
+                        />
+                      </div>
+                      {it.url && <a href={it.url} target="_blank" className="mt-3 inline-block underline" style={{ color:'var(--accent)' }}>Open</a>}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Load more */}
+        {items.length < total && (
+          <div className="mt-6 flex justify-center">
+            <button
+              onClick={()=>load(page+1, { append:true, pushHistory:true })}
+              className="btn-accent"
+              disabled={loading}
+            >
+              {loading ? 'Loading…' : 'Load more'}
+            </button>
+          </div>
+        )}
+          </section>
+
+          {/* RIGHT: Saved Posts Sidebar */}
+          <SavedPostsSidebar />
+        </div>
       </div>
     </div>
   );

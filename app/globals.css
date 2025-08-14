@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 :root {
-  --accent: #d5be7a;          /* NEW brand accent */
+  --accent: #e5c35a;          /* NEW brand accent */
   --accent-fg: #000;          /* readable text on accent */
   --gold: #e5c35a;            /* gold color for saved posts */
   --card: #0b0b0b;            /* card background */
@@ -96,6 +96,28 @@ html, body { overscroll-behavior-y: contain; }
     background-position: 0% 50%;
   }
 }
+
+/* Density variables (defaults = comfortable) */
+:root {
+  --grid-gap: 16px;
+  --card-pad: 16px;
+  --chip-gap: 8px;
+}
+:root[data-density="compact"] {
+  --grid-gap: 10px;
+  --card-pad: 10px;
+  --chip-gap: 6px;
+}
+:root[data-density="comfortable"] {
+  --grid-gap: 16px;
+  --card-pad: 16px;
+  --chip-gap: 8px;
+}
+
+/* Utility hooks (optional, if you want classes) */
+.density-grid { gap: var(--grid-gap); }
+.density-card { padding: var(--card-pad); }
+.density-chips { gap: var(--chip-gap); }
 
 /* Utility classes for the new components */
 .bg-gold { background-color: var(--gold); }
