@@ -1,7 +1,7 @@
 'use client';
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
-export type Density = 'comfortable' | 'compact';
+export type Density = 'comfortable' | 'compact' | 'ultra';
 type Ctx = { density: Density; setDensity: (d: Density) => void; toggle: () => void; };
 
 const DensityContext = createContext<Ctx | null>(null);
@@ -11,9 +11,9 @@ function readInitialDensity(): Density {
   try {
     const sp = new URLSearchParams(window.location.search);
     const qp = (sp.get('density') || '').toLowerCase();
-    if (qp === 'compact' || qp === 'comfortable') return qp as Density;
+    if (qp === 'compact' || qp === 'comfortable' || qp === 'ultra') return qp as Density;
     const ls = (localStorage.getItem(LS_KEY) || '').toLowerCase();
-    if (ls === 'compact' || ls === 'comfortable') return ls as Density;
+    if (ls === 'compact' || ls === 'comfortable' || ls === 'ultra') return ls as Density;
   } catch {}
   return 'comfortable';
 }
@@ -36,7 +36,9 @@ export function DensityProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const setDensity = (d: Density) => { setDensityState(d); applyDensity(d); };
-  const toggle = () => setDensity(density === 'compact' ? 'comfortable' : 'compact');
+  const toggle = () => {
+    setDensity(density === 'comfortable' ? 'compact' : density === 'compact' ? 'ultra' : 'comfortable');
+  };
 
   const value = useMemo(() => ({ density, setDensity, toggle }), [density]);
   return <DensityContext.Provider value={value}>{children}</DensityContext.Provider>;

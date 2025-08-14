@@ -37,6 +37,13 @@ export default function DensityToggle() {
       >
         Compact
       </button>
+      <button
+        onClick={() => setDensity('ultra')}
+        title="Ultra-Compact"
+        style={{ ...baseBtn, ...(density === 'ultra' ? active : {}) }}
+      >
+        Ultra
+      </button>
     </div>
   );
 }

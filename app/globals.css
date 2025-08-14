@@ -102,22 +102,40 @@ html, body { overscroll-behavior-y: contain; }
   --grid-gap: 16px;
   --card-pad: 16px;
   --chip-gap: 8px;
+  --card-font: 14.5px;  /* base font inside cards */
 }
 :root[data-density="compact"] {
   --grid-gap: 10px;
   --card-pad: 10px;
   --chip-gap: 6px;
+  --card-font: 13.5px;
+}
+:root[data-density="ultra"] {
+  --grid-gap: 8px;
+  --card-pad: 8px;
+  --chip-gap: 4px;
+  --card-font: 12.75px;
 }
 :root[data-density="comfortable"] {
   --grid-gap: 16px;
   --card-pad: 16px;
   --chip-gap: 8px;
+  --card-font: 14.5px;
 }
 
-/* Utility hooks (optional, if you want classes) */
+/* Utility hooks */
 .density-grid { gap: var(--grid-gap); }
-.density-card { padding: var(--card-pad); }
+.density-card { padding: var(--card-pad); font-size: var(--card-font); }
 .density-chips { gap: var(--chip-gap); }
+
+/* Results grid: 1 col mobile, 2 cols ≥640px (sm) by default; Ultra → 3 cols at ≥1024px (lg) */
+.cards-grid { display: grid; grid-template-columns: repeat(1, minmax(0, 1fr)); gap: var(--grid-gap); }
+@media (min-width: 640px) { /* sm */
+  .cards-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 1024px) { /* lg */
+  :root[data-density="ultra"] .cards-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
 
 /* Utility classes for the new components */
 .bg-gold { background-color: var(--gold); }

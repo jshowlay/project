@@ -470,16 +470,15 @@ export default function Page() {
             )}
           </div>
 
-          {/* RESULTS GRID — 2 columns on ≥sm, 1 on mobile, variable gap */}
-          <div className="mt-6 grid grid-cols-1 sm:grid-cols-2" style={{ gap: 'var(--grid-gap)' }}>
+          {/* RESULTS GRID — density-aware spacing & columns */}
+          <div className="mt-6 cards-grid">
             {loading && items.length === 0 && Array.from({length:6}).map((_,i)=><SkeletonCard key={i} />)}
             {items.map(it=>{
               const { term, geo } = deriveTermAndGeo(it.topic, it.region);
               return (
                 <div
                   key={`${it.source}:${it.topic}:${String((it as any).observedAt ?? '')}`}
-                  className="rounded-2xl border border-[#1b1b1b] bg-[#0f0f0f]"
-                  style={{ padding: 'var(--card-pad)' }}
+                  className="rounded-2xl border border-[#1b1b1b] bg-[#0f0f0f] density-card"
                 >
                   {it.imageUrl && (
                     <CardImage remoteUrl={String(it.imageUrl)} alt={String(it.topic)} ratio="16/9" />
