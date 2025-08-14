@@ -167,9 +167,17 @@ dump_database() {
     
     log_info "Attempting database dump..."
     
-    # Try to load environment variables
+    # Try to load environment variables (more robust parsing)
     if [[ -f "$PROJECT_ROOT/.env" ]]; then
-        export $(grep -v '^#' "$PROJECT_ROOT/.env" | xargs)
+        while IFS= read -r line; do
+            # Skip comments and empty lines
+            if [[ ! "$line" =~ ^[[:space:]]*# ]] && [[ -n "$line" ]]; then
+                # Extract key=value pairs
+                if [[ "$line" =~ ^([^=]+)=(.*)$ ]]; then
+                    export "${BASH_REMATCH[1]}"="${BASH_REMATCH[2]}"
+                fi
+            fi
+        done < "$PROJECT_ROOT/.env"
     fi
     
     # PostgreSQL dump
@@ -310,8 +318,10 @@ capture_git_info() {
     if [[ -d "$PROJECT_ROOT/.git" ]]; then
         cd "$PROJECT_ROOT"
         
-        # Current branch
-        git branch --show-current > "$git_dir/current_branch.txt" 2>/dev/null || echo "unknown" > "$git_dir/current_branch.txt"
+        # Current branch (compatible with older git versions)
+        if ! git branch --show-current > "$git_dir/current_branch.txt" 2>/dev/null; then
+            git rev-parse --abbrev-ref HEAD > "$git_dir/current_branch.txt" 2>/dev/null || echo "unknown" > "$git_dir/current_branch.txt"
+        fi
         
         # Latest commit
         git log -1 --pretty=format:"%H%n%an%n%ae%n%ad%n%s" > "$git_dir/latest_commit.txt" 2>/dev/null || echo "no commits" > "$git_dir/latest_commit.txt"
