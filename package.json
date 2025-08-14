@@ -9,6 +9,9 @@
     "migrate": "prisma migrate dev",
     "lint": "eslint .",
     "test": "vitest",
+    "backup": "node scripts/backup.js",
+    "backup:bash": "./scripts/backup.sh",
+    "backup:win": "scripts\\backup.bat",
     "pg:up": "docker compose -f docker-compose.pg.yml up -d",
     "pg:down": "docker compose -f docker-compose.pg.yml down",
     "prisma:generate:pg": "prisma generate --schema=prisma/schema.prisma",
@@ -91,6 +94,7 @@
   "devDependencies": {
     "@types/jest": "^30.0.0",
     "@vitest/ui": "^3.2.4",
+    "archiver": "^6.0.2",
     "tsx": "^4.20.3",
     "vitest": "^3.2.4"
   }
