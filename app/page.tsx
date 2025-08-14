@@ -481,7 +481,7 @@ export default function Page() {
                   className="rounded-2xl border border-[#1b1b1b] bg-[#0f0f0f] density-card"
                 >
                   {it.imageUrl && (
-                    <CardImage remoteUrl={String(it.imageUrl)} alt={String(it.topic)} ratio="16/9" />
+                    <CardImage remoteUrl={String(it.imageUrl)} alt={String(it.topic)} />
                   )}
                   <div className="flex items-center justify-between">
                     <span className="text-sm uppercase tracking-wide" style={{ color:'var(--accent)' }}>{it.source}</span>

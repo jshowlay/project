@@ -2,9 +2,11 @@
 import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { NAV } from '@/nav.config';
+import { useDensity } from '@/components/DensityProvider';
 
 export function useHotkeys() {
   const router = useRouter();
+  const { toggle: toggleDensity } = useDensity();
   const lastKeyRef = useRef<{ k: string; t: number } | null>(null);
 
   useEffect(() => {
@@ -40,6 +42,13 @@ export function useHotkeys() {
       if (last && last.k === 'g' && now - last.t < 800 && !inInput()) {
         const letter = e.key.toLowerCase();
         lastKeyRef.current = null;
+        
+        if (letter === 'z') {
+          e.preventDefault();
+          toggleDensity();   // Comfortable → Compact → Ultra → Comfortable
+          return;
+        }
+        
         const target = NAV.find(n => (n.hotkey.split(' ')[1] || '') === letter && !n.hidden);
         if (target) {
           e.preventDefault();

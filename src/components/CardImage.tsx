@@ -12,7 +12,7 @@ type Props = {
 export default function CardImage({
   remoteUrl,
   alt,
-  ratio = '16/9',
+  ratio,
   maxW = 2000,
   quality = 88
 }: Props) {
@@ -56,7 +56,7 @@ export default function CardImage({
     <div
       ref={wrapRef}
       className="mb-3 overflow-hidden rounded-xl relative"
-      style={{ aspectRatio: ratio, background:'#0e0e0e', border:'1px solid #1b1b1b' }}
+      style={{ aspectRatio: ratio ?? 'var(--card-image-ratio)', background:'#0e0e0e', border:'1px solid #1b1b1b' }}
     >
       {!loaded && !failed && (
         <div className="absolute inset-0 animate-pulse" style={{

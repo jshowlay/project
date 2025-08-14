@@ -103,18 +103,21 @@ html, body { overscroll-behavior-y: contain; }
   --card-pad: 16px;
   --chip-gap: 8px;
   --card-font: 14.5px;  /* base font inside cards */
+  --card-image-ratio: 16/9;   /* Comfortable default */
 }
 :root[data-density="compact"] {
   --grid-gap: 10px;
   --card-pad: 10px;
   --chip-gap: 6px;
   --card-font: 13.5px;
+  --card-image-ratio: 16/9;   /* Keep same framing in Compact */
 }
 :root[data-density="ultra"] {
   --grid-gap: 8px;
   --card-pad: 8px;
   --chip-gap: 4px;
   --card-font: 12.75px;
+  --card-image-ratio: 2/1;    /* Slightly shorter image for more above-the-fold text */
 }
 :root[data-density="comfortable"] {
   --grid-gap: 16px;
