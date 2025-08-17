@@ -1,0 +1,21 @@
+# Queries for recent search (set whichever you want; empty list is fine)
+queries:
+  - '"trend forecast" OR "breakout trend" lang:en -is:retweet'
+  - '(ai OR "artificial intelligence") (marketing OR content) lang:en -is:retweet'
+
+# Usernames whose timelines you want to ingest (no @)
+usernames:
+  - trenderai
+  - OpenAI
+  - a16z
+
+# Optional: per-source tags you want attached in normalized table
+tags:
+  - twitter
+  - trends
+  - ai
+
+# Optional: language constraint for normalization filters (leave empty to keep all)
+lang: en
+
+

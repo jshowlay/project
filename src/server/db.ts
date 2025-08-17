@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import Redis from 'ioredis';
+import { Pool } from "pg";
 
 const globalForPrisma = global as unknown as { prisma?: PrismaClient };
 export const prisma = globalForPrisma.prisma ?? new PrismaClient({
@@ -49,4 +50,24 @@ export function redis() {
       ping: async () => 'PONG',
     } as any;
   }
+}
+
+// Signals database client (pg Pool)
+let _pool: Pool | null = null;
+export function db() {
+  if (!_pool) {
+    const cs = process.env.PG_URL;
+    if (!cs) throw new Error("PG_URL not set");
+    const needsSsl = /neon\.tech/i.test(cs) || (process.env.PG_SSL ?? "").toLowerCase().startsWith("req");
+    _pool = new Pool({
+      connectionString: cs,
+      ssl: needsSsl ? { rejectUnauthorized: false } : undefined,
+    });
+  }
+  return _pool;
+}
+
+export async function query<T = any>(sql: string, params: any[] = []) {
+  const res = await db().query(sql, params);
+  return res.rows as T[];
 }

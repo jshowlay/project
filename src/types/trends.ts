@@ -1,4 +1,4 @@
-export type SourceId = 'reddit'|'youtube'|'newsapi'|'coingecko'|'alphavantage';
+export type SourceId = 'reddit'|'youtube'|'newsapi'|'coingecko'|'alphavantage'|'nytimes'|'instagram'|'twitter';
 export interface TrendItem {
   id?: string;
   source: SourceId;
@@ -11,4 +11,5 @@ export interface TrendItem {
   raw?: unknown;          // trimmed source payload
   observedAt: Date;
   language?: string|null;
+  imageUrl?: string|null; // URL to image/thumbnail
 }

@@ -192,6 +192,9 @@ export async function searchRecent(query: string, max = 50): Promise<XItem[]> {
       const short = t.text.replace(/\s+/g,' ').trim().slice(0, 140);
       const url = (u?.username) ? `https://twitter.com/${u.username}/status/${t.id}` : `https://twitter.com/i/web/status/${t.id}`;
       const tags = ['twitter', ...extractHashtags(t)];
+      
+      // Get first media item if available
+      const firstMedia = t.attachments?.media_keys?.[0] ? mediaByKey.get(t.attachments.media_keys[0]) : null;
 
       return {
         topic: `${short} [tw:${t.id}]${username ? ' — ' + username : ''}`,

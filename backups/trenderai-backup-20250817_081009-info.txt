@@ -1,0 +1,43 @@
+TrenderAI Backup
+===============
+
+Backup Date: Sun Aug 17 08:10:13 PDT 2025
+Backup Timestamp: 20250817_081009
+Backup Type: Full Application Backup
+Archive: trenderai-backup-20250817_081009.tar.gz
+
+Contents:
+- Source code (excluding node_modules, .next, etc.)
+- Configuration files
+- Prisma schema
+- Package dependencies
+- Scripts and documentation
+
+Backup Size:  11M
+
+System Info:
+- OS: Darwin
+- Architecture: x86_64
+- Node Version: v22.18.0
+- NPM Version: 10.9.3
+- PNPM Version: 10.14.0
+
+Git Info:
+- Branch: Not available
+- Commit: 9545624432dc51e8c501bb697c10afa618c6256d
+- Status: Modified files: 74
+
+Database Info:
+- DATABASE_URL: Not set
+
+Application Features:
+- Next.js App Router
+- TypeScript
+- Prisma ORM
+- Tailwind CSS
+- Instagram Graph API Integration
+- NYTimes API Integration
+- Twitter/X Integration
+- Image Optimization System
+- Multiple Data Sources (Reddit, YouTube, News, etc.)
+

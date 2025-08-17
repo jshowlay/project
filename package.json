@@ -2,6 +2,7 @@
   "name": "trender-ai",
   "version": "1.0.0",
   "private": true,
+  "type": "commonjs",
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
@@ -19,7 +20,17 @@
     "db:migrate:pg": "prisma migrate dev -n init-postgres",
     "db:deploy:pg": "prisma migrate deploy",
     "db:copy:sqlite-to-pg": "tsx scripts/migrate-sqlite-to-postgres.ts",
-    "db:mv:refresh": "node -e \"(async()=>{const {refreshSearchMV}=await import('./src/server/search_mv');console.log(await refreshSearchMV());})()\""
+    "db:mv:refresh": "node -e \"(async()=>{const {refreshSearchMV}=await import('./src/server/search_mv');console.log(await refreshSearchMV());})()\"",
+    "db:up": "docker compose -f docker-compose.pg.yml up -d",
+    "db:migrate": "tsx scripts/migrate.ts",
+    "db:test": "tsx scripts/test-db.ts",
+    "db:refresh": "node -e \"(async()=>{const {db}=require('./src/server/db'); await db().query('SELECT refresh_signal_views()'); console.log('refreshed'); process.exit(0)})().catch(e=>{console.error(e);process.exit(1);})\"",
+    "migrate:nyt": "tsx scripts/migrate.ts sql/nyt_init.sql",
+    "ingest:nyt:once": "tsx src/jobs/ingestNYT.ts",
+    "ingest:nyt:backfill": "tsx src/jobs/ingestNYT.ts --backfill",
+    "convert:nyt:trends": "tsx src/jobs/convertNYTToTrends.ts",
+    "worker": "tsx src/jobs/scheduler.ts",
+    "enrich:nyt:semantics": "tsx src/jobs/enrichNYTSemantic.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
@@ -54,6 +65,7 @@
     "@radix-ui/react-tooltip": "^1.1.2",
     "@sentry/nextjs": "^10.4.0",
     "@types/node": "24.2.1",
+    "@types/pg": "^8.15.5",
     "@types/react": "18.2.22",
     "@types/react-dom": "18.2.7",
     "autoprefixer": "10.4.15",
@@ -61,6 +73,7 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.0.0",
     "date-fns": "^3.6.0",
+    "dotenv": "^16.4.5",
     "embla-carousel-react": "^8.3.0",
     "eslint": "8.57.0",
     "eslint-config-next": "13.5.6",
@@ -71,6 +84,7 @@
     "next": "13.5.6",
     "next-themes": "^0.3.0",
     "node-cron": "^4.2.1",
+    "pg": "^8.16.3",
     "pino": "^9.8.0",
     "postcss": "8.4.30",
     "prisma": "^6.13.0",
@@ -81,6 +95,7 @@
     "react-hook-form": "^7.53.0",
     "react-resizable-panels": "^2.1.3",
     "recharts": "^2.12.7",
+    "rss-parser": "^3.13.0",
     "sharp": "^0.33.5",
     "sonner": "^1.5.0",
     "tailwind-merge": "^2.5.2",
@@ -95,6 +110,7 @@
     "@types/jest": "^30.0.0",
     "@vitest/ui": "^3.2.4",
     "archiver": "^6.0.2",
+    "ts-node": "^10.9.2",
     "tsx": "^4.20.3",
     "vitest": "^3.2.4"
   }

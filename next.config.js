@@ -8,6 +8,46 @@ const baseConfig = {
         protocol: 'https',
         hostname: 'trenderai.com',
         pathname: '/wp-content/uploads/**'
+      },
+      {
+        protocol: 'http',
+        hostname: 'trenderai.com',
+        pathname: '/wp-content/uploads/**'
+      },
+      {
+        protocol: 'https',
+        hostname: 'images.unsplash.com',
+        pathname: '/**'
+      },
+      {
+        protocol: 'https',
+        hostname: 'picsum.photos',
+        pathname: '/**'
+      },
+      {
+        protocol: 'https',
+        hostname: 'static01.nyt.com',
+        pathname: '/**'
+      },
+      {
+        protocol: 'https',
+        hostname: 'i.ytimg.com',
+        pathname: '/**'
+      },
+      {
+        protocol: 'https',
+        hostname: 'pbs.twimg.com',
+        pathname: '/**'
+      },
+      {
+        protocol: 'https',
+        hostname: 'i.redd.it',
+        pathname: '/**'
+      },
+      {
+        protocol: 'https',
+        hostname: 'scontent.cdninstagram.com',
+        pathname: '/**'
       }
     ]
   }

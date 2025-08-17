@@ -21,7 +21,7 @@ export default function Logo({ size='lg', className='' }: Props) {
       aria-label="TrenderAI Logo"
     >
       <Image
-        src="https://trenderai.com/wp-content/uploads/2025/01/logo-new.png"
+        src="http://trenderai.com/wp-content/uploads/2025/08/logo-trenderai.png"
         alt="TrenderAI"
         fill
         priority

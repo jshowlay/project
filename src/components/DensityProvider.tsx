@@ -40,7 +40,7 @@ export function DensityProvider({ children }: { children: React.ReactNode }) {
     setDensity(density === 'comfortable' ? 'compact' : density === 'compact' ? 'ultra' : 'comfortable');
   };
 
-  const value = useMemo(() => ({ density, setDensity, toggle }), [density]);
+  const value = useMemo(() => ({ density, setDensity, toggle }), [density, toggle]);
   return <DensityContext.Provider value={value}>{children}</DensityContext.Provider>;
 }
 

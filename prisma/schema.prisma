@@ -1,6 +1,5 @@
 generator client {
   provider = "prisma-client-js"
-  // default output for the Postgres client
 }
 
 datasource db {
@@ -16,18 +15,49 @@ model TrendRecord {
   delta24h       Float?
   url            String?
   region         String?
-  tags           String[]  @db.Text
+  tags           String[]
   raw            Json?
   observedAt     DateTime  @db.Timestamptz(6)
   language       String?
   createdAt      DateTime  @default(now())
   observedBucket DateTime? @db.Timestamptz(6)
+  imageUrl       String?
+  images         String[]
 
-  // NEW:
-  imageUrl       String?   @db.Text
-  images         String[]  @db.Text
-
+  @@unique([source, topic, observedBucket], name: "source_topic_observedBucket")
   @@index([source, observedAt])
   @@index([topic])
-  @@unique([source, topic, observedBucket], name: "source_topic_observedBucket")
+}
+
+model TikTokAccount {
+  id          String       @id @default(cuid())
+  openId      String       @unique
+  displayName String?
+  avatarUrl   String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  videos      TikTokVideo[]
+}
+
+model TikTokVideo {
+  id            String        @id
+  accountId     String
+  account       TikTokAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  description   String?
+  shareUrl      String?
+  durationSec   Int?
+  width         Int?
+  height        Int?
+  likeCount     Int           @default(0)
+  commentCount  Int           @default(0)
+  shareCount    Int           @default(0)
+  viewCount     Int           @default(0)
+  postedAt      DateTime?
+  hashtags      String?
+  musicTitle    String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([accountId])
+  @@index([postedAt])
 }

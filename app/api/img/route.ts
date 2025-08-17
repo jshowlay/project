@@ -1,111 +1,118 @@
 import { NextRequest, NextResponse } from 'next/server';
 import sharp from 'sharp';
 
+// Runtime configuration for Node.js (Sharp requires Node runtime, not Edge)
 export const runtime = 'nodejs';
 
-function isHttpUrl(u: string) {
-  try { const x = new URL(u); return x.protocol === 'http:' || x.protocol === 'https:'; }
-  catch { return false; }
-}
-function pickFormat(accept: string | null, fmtParam?: string | null) {
-  const fmt = (fmtParam || '').toLowerCase();
-  if (['avif','webp','jpeg','jpg','png'].includes(fmt)) return fmt === 'jpg' ? 'jpeg' : fmt;
-  const a = (accept || '').toLowerCase();
-  if (a.includes('image/avif')) return 'avif';
-  if (a.includes('image/webp')) return 'webp';
-  return 'jpeg';
+interface ImageParams {
+  url: string;
+  width?: number;
+  height?: number;
+  dpr?: number;
+  format?: 'avif' | 'webp' | 'jpeg';
+  quality?: number;
 }
 
-export async function GET(req: NextRequest) {
-  const url = req.nextUrl;
-  const src = url.searchParams.get('u') || '';
-  if (!src || !isHttpUrl(src)) return new NextResponse('bad url', { status: 400 });
+// Clamp dimensions and DPR values
+const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
-  // Width / DPR / quality (guarded)
-  const wParam = Number(url.searchParams.get('w') || 0);
-  const dpr    = Math.min(Math.max(Number(url.searchParams.get('dpr') || 1), 1), 3);
-  const q      = Math.min(Math.max(Number(url.searchParams.get('q') || 88), 30), 95);
-  const accept = req.headers.get('accept');
-  const outFmt = pickFormat(accept, url.searchParams.get('fmt'));
+// Quality settings for different formats
+const QUALITY_SETTINGS = {
+  avif: 55,
+  webp: 70,
+  jpeg: 82
+} as const;
 
-  const reqW = wParam > 0 ? Math.min(wParam * dpr, 3000) : 0;
-
-  // Deny private hosts
-  const host = new URL(src).hostname.toLowerCase();
-  if (/(^|\.)(localhost|127\.0\.0\.1|0\.0\.0\.0)$/.test(host)) {
-    return new NextResponse('forbidden', { status: 403 });
+// Format-specific Sharp options
+const FORMAT_OPTIONS = {
+  avif: { quality: QUALITY_SETTINGS.avif },
+  webp: { quality: QUALITY_SETTINGS.webp },
+  jpeg: { 
+    quality: QUALITY_SETTINGS.jpeg,
+    mozjpeg: true 
   }
+} as const;
 
-  // Fetch upstream (follow redirects, small timeout, size cap)
-  const ctl = new AbortController();
-  const timer = setTimeout(() => ctl.abort(), 10000);
+export async function GET(request: NextRequest) {
   try {
-    const upstream = await fetch(src, {
-      method: 'GET',
-      redirect: 'follow',
-      headers: {
-        'user-agent': 'TrenderAI-ImageProxy/1.2 (+https://trenderai.com)',
-        'accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8'
-      },
-      signal: ctl.signal,
-      cache: 'force-cache',
-      next: { revalidate: 86400 } // 1 day
-    });
-    if (!upstream.ok) return new NextResponse(`upstream ${upstream.status}`, { status: 502 });
-    const reader = upstream.body?.getReader();
-    if (!reader) return new NextResponse('no body', { status: 502 });
-
-    const chunks: Uint8Array[] = [];
-    let total = 0;
-    const MAX = 10_000_000; // 10MB cap
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      if (value) {
-        total += value.length;
-        if (total > MAX) return new NextResponse('too large', { status: 413 });
-        chunks.push(value);
-      }
+    const { searchParams } = new URL(request.url);
+    
+    // Parse and validate parameters
+    const url = searchParams.get('url');
+    if (!url) {
+      return NextResponse.json({ error: 'URL parameter is required' }, { status: 400 });
     }
-    const inputBuf = Buffer.concat(chunks);
 
-    // Inspect source to avoid pointless upscaling
-    const meta = await sharp(inputBuf, { limitInputPixels: 16000 * 16000 }).metadata();
-    const srcW = meta.width || 0;
+    const width = clamp(parseInt(searchParams.get('width') || '800'), 16, 4096);
+    const height = searchParams.get('height') ? clamp(parseInt(searchParams.get('height')!), 16, 4096) : undefined;
+    const dpr = clamp(parseFloat(searchParams.get('dpr') || '1'), 1, 3);
+    const format = (searchParams.get('format') as ImageParams['format']) || 'webp';
+    const quality = clamp(parseInt(searchParams.get('quality') || QUALITY_SETTINGS[format].toString()), 1, 100);
 
-    // Target width: don't upscale beyond source width (keeps crisp detail)
-    const targetW = reqW ? Math.min(Math.round(reqW), srcW || reqW) : (srcW || undefined);
+    // Calculate actual dimensions
+    const actualWidth = Math.round(width * dpr);
+    const actualHeight = height ? Math.round(height * dpr) : undefined;
 
-    let pipe = sharp(inputBuf, { limitInputPixels: 16000 * 16000 })
-      // Normalize color space and orientation for consistency
-      .withMetadata()
-      .rotate()
-      .toColorspace('srgb');
+    // Fetch the source image
+    const imageResponse = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; TrenderAI-ImageOptimizer/1.0)'
+      }
+    });
 
-    if (targetW) {
-      pipe = pipe.resize({
-        width: targetW,
+    if (!imageResponse.ok) {
+      return NextResponse.json(
+        { error: `Failed to fetch image: ${imageResponse.status} ${imageResponse.statusText}` },
+        { status: 404 }
+      );
+    }
+
+    const imageBuffer = await imageResponse.arrayBuffer();
+
+    // Process image with Sharp
+    let sharpInstance = sharp(Buffer.from(imageBuffer));
+
+    // Resize with withoutEnlargement to prevent upscaling small images
+    if (actualWidth || actualHeight) {
+      sharpInstance = sharpInstance.resize(actualWidth, actualHeight, {
         withoutEnlargement: true,
-        fit: 'cover',
-        position: 'entropy' // smart crop to the most "interesting" area
+        fit: 'inside'
       });
     }
 
-    // High-quality encoders
-    if (outFmt === 'avif')      pipe = pipe.avif({ quality: Math.min(q, 55), effort: 4, chromaSubsampling: '4:2:0' });
-    else if (outFmt === 'webp') pipe = pipe.webp({ quality: q, effort: 4 });
-    else if (outFmt === 'png')  pipe = pipe.png({ compressionLevel: 9 });
-    else                        pipe = pipe.jpeg({ quality: q, mozjpeg: true, progressive: true });
+    // Convert to requested format
+    const formatOptions = FORMAT_OPTIONS[format];
+    let processedBuffer: Buffer;
 
-    const output = await pipe.toBuffer();
+    switch (format) {
+      case 'avif':
+        processedBuffer = await sharpInstance.avif(formatOptions).toBuffer();
+        break;
+      case 'webp':
+        processedBuffer = await sharpInstance.webp(formatOptions).toBuffer();
+        break;
+      case 'jpeg':
+        processedBuffer = await sharpInstance.jpeg(formatOptions).toBuffer();
+        break;
+      default:
+        processedBuffer = await sharpInstance.webp(FORMAT_OPTIONS.webp).toBuffer();
+    }
 
-    const h = new Headers();
-    h.set('content-type', `image/${outFmt}`);
-    h.set('cache-control', 'public, s-maxage=86400, stale-while-revalidate=604800');
-    return new NextResponse(output, { status: 200, headers: h });
-  } catch (e) {
-    return new NextResponse('timeout', { status: 504 });
-  } finally {
-    clearTimeout(timer);
+    // Set cache headers for processed images
+    const headers = new Headers({
+      'Content-Type': `image/${format}`,
+      'Cache-Control': 'public, max-age=31536000, immutable',
+      'Vary': 'Accept, DPR, Width',
+      'Content-Length': processedBuffer.length.toString()
+    });
+
+    return new NextResponse(processedBuffer, { headers });
+
+  } catch (error) {
+    console.error('Image optimization error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error during image processing' },
+      { status: 500 }
+    );
   }
 }

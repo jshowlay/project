@@ -1,364 +1,245 @@
-# TrenderAI - Multi-Source Trend Analysis Platform
+# TrenderAI Fresh Sources
 
-A real-time trend analysis platform that aggregates data from multiple sources (Reddit, YouTube, News APIs, Crypto, Stocks) and provides a unified scoring system with a modern dark-themed dashboard.
+Five connectors: Wikipedia Most Read, Hacker News (front page & newest), Product Hunt (today), Apple App Store RSS (US top charts), and CoinGecko Trending Search.
 
-## 🚀 Features
+## Features
 
-- **Multi-Source Ingestion**: Reddit, YouTube, NewsAPI, CoinGecko, Alpha Vantage
-- **Unified Scoring**: Normalized 0-100 scoring across all sources
-- **Real-time Dashboard**: Dark theme with golden accents (#000 / #e5c35a)
-- **Caching & Rate Limiting**: Redis-powered caching and API rate limiting
-- **Production Ready**: Vercel deployment with cron jobs
-- **Type Safety**: Full TypeScript with Zod validation
+- **Wikipedia**: Yesterday's most read articles (top 100)
+- **Hacker News**: Front page rankings + newest stories with points/comments
+- **Product Hunt**: Today's top products with votes/comments (requires API token)
+- **Apple App Store**: Top free and paid apps in US (configurable region)
+- **CoinGecko**: Trending cryptocurrency searches
 
-## 🏗️ Architecture
+## Tech Stack
 
+- **Runtime**: Node.js 20+
+- **Language**: TypeScript
+- **Database**: PostgreSQL (with optional TimescaleDB support)
+- **HTTP**: Axios with retry logic
+- **Scheduling**: node-cron (every 15 minutes)
+- **Logging**: Pino
+- **Validation**: Zod
+- **Package Manager**: pnpm
+
+## Setup
+
+1. **Install dependencies**:
+   ```bash
+   pnpm install
+   ```
+
+2. **Environment configuration**:
+   ```bash
+   cp .env.example .env
+   ```
+   
+   Edit `.env` with your settings:
+   ```env
+   PG_URL=postgres://user:pass@localhost:5432/trenderai
+   PH_TOKEN=YOUR_PRODUCTHUNT_API_TOKEN
+   REGION_DEFAULT=US
+   KEYWORDS=ai agents, consumer trends
+   LOG_LEVEL=info
+   ```
+
+3. **Start PostgreSQL** (and TimescaleDB if desired)
+
+4. **Run the application**:
+   ```bash
+   # Development
+   pnpm dev
+   
+   # Production
+   pnpm start
+   
+   # Build
+   pnpm build
+   ```
+
+## Database Schema
+
+The application automatically creates the `signals` table with the following structure:
+
+```sql
+CREATE TABLE signals(
+  id BIGSERIAL PRIMARY KEY,
+  source TEXT NOT NULL,
+  entity_id TEXT NOT NULL,
+  entity_name TEXT,
+  topic TEXT,
+  metric TEXT NOT NULL,
+  value DOUBLE PRECISION NOT NULL,
+  unit TEXT,
+  "window" TEXT,
+  region TEXT,
+  url TEXT,
+  tags TEXT[],
+  raw JSONB,
+  captured_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  bucket_min TIMESTAMPTZ NOT NULL DEFAULT date_trunc('minute', NOW())
+);
 ```
-src/
-├── types/          # Shared TypeScript interfaces
-├── integrations/   # API adapters for each data source
-├── server/         # Database, caching, and ingestion logic
-app/
-├── api/           # Next.js API routes
-├── (dashboard)/   # Dashboard UI components
+
+### Deduplication
+
+- **Dedupe key**: `(source, entity_id, metric, window, bucket_min)`
+- Re-runs in the same minute overwrite the last value
+- Safe to run multiple instances
+
+### Indexes
+
+- `ux_signals_src_ent_metric_win_bucket` - Unique constraint for deduplication
+- `ix_signals_ts` - Time-based queries
+- `ix_signals_source_metric` - Source and metric filtering
+
+## TimescaleDB Support (Optional)
+
+To enable TimescaleDB features, run these commands in your PostgreSQL database:
+
+```sql
+-- Enable extension
+CREATE EXTENSION IF NOT EXISTS timescaledb;
+
+-- Create hypertable
+SELECT create_hypertable('signals','captured_at', if_not_exists => TRUE);
+
+-- Optional: Create continuous aggregate for hourly summaries
+CREATE MATERIALIZED VIEW IF NOT EXISTS signals_1h WITH (timescaledb.continuous) AS
+  SELECT time_bucket('1 hour', captured_at) AS bucket, source, metric, region,
+         AVG(value) AS avg_value, MAX(value) AS max_value
+  FROM signals
+  GROUP BY bucket, source, metric, region;
 ```
 
-## 🛠️ Setup
+## Data Sources
 
-### Prerequisites
-- **Node.js**: Version 18.17.0 or higher (required for Sharp image processing)
-- **PostgreSQL**: Database for trend storage
-- **Redis**: Optional, for caching (falls back to mock client if unavailable)
+### Wikipedia (`wikipedia`)
+- **Endpoint**: Wikimedia Pageviews API
+- **Data**: Yesterday's most read articles
+- **Metrics**: `pageviews.rank`
+- **Frequency**: Daily (harmless to re-run due to dedupe)
 
-### 1. Install Dependencies
+### Hacker News (`hackernews`)
+- **Endpoint**: Algolia HN API
+- **Data**: Front page + newest stories
+- **Metrics**: `frontpage.rank`, `points`, `comments`
+- **Frequency**: Every 15 minutes
+
+### Product Hunt (`producthunt`)
+- **Endpoint**: GraphQL v2 API
+- **Data**: Today's top products
+- **Metrics**: `votes`, `comments`
+- **Requirements**: API token (`PH_TOKEN`)
+- **Frequency**: Every 15 minutes
+
+### Apple App Store (`apple_appstore`)
+- **Endpoint**: Apple Marketing Tools RSS
+- **Data**: Top free and paid apps
+- **Metrics**: `rank.top_free`, `rank.top_paid`
+- **Configurable**: Region via `REGION_DEFAULT`
+- **Frequency**: Every 15 minutes
+
+### CoinGecko (`coingecko`)
+- **Endpoint**: CoinGecko Trending API
+- **Data**: Trending cryptocurrency searches
+- **Metrics**: `search.trending_rank`
+- **Requirements**: None (free API)
+- **Frequency**: Every 15 minutes
+
+## Extending
+
+To add new data sources:
+
+1. Create a new file in `src/sources/`
+2. Export a function that returns `Promise<SignalRow[]>`
+3. Add the function to `runOnce()` in `src/index.ts`
+
+Example:
+```typescript
+// src/sources/example.ts
+import { getJson, floorToMinute } from "../utils";
+import { SignalRow } from "../types";
+
+export async function fetchExample(): Promise<SignalRow[]> {
+  const data = await getJson("https://api.example.com/data");
+  const bucket = floorToMinute();
+  
+  return data.items.map((item, idx) => ({
+    source: "example",
+    entity_id: item.id,
+    entity_name: item.name,
+    metric: "example.metric",
+    value: item.value,
+    unit: "units",
+    window: "now",
+    url: item.url,
+    raw: item,
+    bucket_min: bucket
+  }));
+}
+```
+
+## Deployment
+
+### Background Worker
 ```bash
-pnpm install
+# Build the application
+pnpm build
+
+# Run in production
+NODE_ENV=production pnpm start
 ```
 
-### 2. Environment Configuration
-Copy `.env.example` to `.env` and configure:
-```bash
-cp env.example .env
+### Serverless Cron
+The application is safe to run as a serverless function with a 15-minute cron trigger.
+
+### Docker
+```dockerfile
+FROM node:20-alpine
+WORKDIR /app
+COPY package.json pnpm-lock.yaml ./
+RUN npm install -g pnpm && pnpm install --frozen-lockfile
+COPY . .
+RUN pnpm build
+CMD ["pnpm", "start"]
 ```
 
-**Required:**
-- `DATABASE_URL` - PostgreSQL connection string
-- `REDIS_URL` - Redis connection string
-- `CRON_SECRET` - Secret for ingestion endpoint
+## Monitoring
 
-**Optional (activate adapters):**
-- `REDDIT_CLIENT_ID` & `REDDIT_CLIENT_SECRET` - Reddit API
-- `YOUTUBE_API_KEY` - YouTube Data API
-- `NEWSAPI_KEY` - NewsAPI.org
-- `ALPHAVANTAGE_KEY` - Alpha Vantage (stocks/crypto)
+The application logs:
+- Ingestion counts per source
+- Processing time
+- Errors with retry logic
+- Database connection status
 
-### 3. Database Setup
-```bash
-# Generate Prisma client
-pnpm run build
+Log levels: `error`, `warn`, `info`, `debug`
 
-# Run migrations
-pnpm run migrate
-```
+## Notes
 
-### 4. Start Development
-```bash
-pnpm dev
-```
+- **Safe to re-run**: Deduplication prevents duplicate data
+- **Fault tolerant**: Individual source failures don't stop other sources
+- **Rate limiting**: Built-in retry logic with exponential backoff
+- **Memory efficient**: Processes data in batches
+- **Production ready**: Includes proper error handling and logging
 
-Visit `http://localhost:3000` for the dashboard.
+## Signals Integration (Local)
 
-## 📊 API Endpoints
+1) `cp .env.example .env` and set `PG_URL`.
+2) `npm run db:up` to start Postgres.
+3) `npm run db:migrate` to create schema & views.
+4) Start your ingestion worker (the 5-source worker you built) with the same `PG_URL`.
+5) Run the app; open `/trends`.
+6) Optional: `npm run db:refresh` forces materialized view refresh.
 
-### Public Endpoints
-- `GET /api/trends` - Fetch trend data with filtering
-- `GET /api/sources` - List active data sources
-- `GET /api/health` - Health check
+## Notes
 
-## 🔍 Search
+- Trending score is %Δ between now(15m) and baseline(24h). For rank metrics (name starts with `rank.`), lower ranks score higher (we invert).
+- Everything is additive. To add new sources later, just keep writing to `signals`.
 
-- Fast search across topics and tags using SQLite LIKE queries
-- Debounced search input with 300ms delay
-- Search across all data sources simultaneously
-- Results ranked by recency and score
-
-### Search Setup
-1) Run migrations:
-   ```bash
-   npm run migrate  # or: npx prisma migrate dev -n add_search_indexes
-   ```
-2) Start dev server:
-   ```bash
-   npm run dev
-   ```
-3) Ingest data (if needed):
-   ```bash
-   curl -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/ingest
-   ```
-
-## Query Operators
-Alongside free-text, you can add operators inside `q`:
-
-- `tag:<value>` — match any tag (case-insensitive). Example: `tag:ai`, `tag:"gen ai"`.
-- `source:<id>` — one or more sources. Example: `source:reddit source:youtube`.
-- `region:<ISO>` — region code (e.g., `region:US`).
-- `since:<date|rel>` — filter by observedAt >= value. ISO `YYYY-MM-DD` or relative: `24h`, `7d`, `2w`, `3m`.
-- `until:<date|rel>` / `before:<date|rel>` — observedAt <= value.
-- `score:>N` `score:<N` — filter by normalized score (0–100).
-- `delta24h:>N` `delta24h:<N` — filter by 24h change where available (stocks/crypto).
-- `sort:rank|score|recency` — default is `rank` when there's text, otherwise `recency`.
-
-Examples:
-- `ai agents OR robotics -crypto sort:rank`
-- `tag:crypto source:coingecko since:7d sort:score`
-- `NVDA source:alphavantage score:>60`
-- `"founder stories" source:reddit region:US since:2025-08-01`
-
-## Operator Chips
-- When you type operators in the search (e.g., `tag:ai source:reddit since:7d sort:score`), chips render under the input.
-- Click ✕ on any chip to remove that operator from the query; the search updates automatically.
-- The Source dropdown (right of the input) also shows as a chip. Removing it clears the dropdown filter.
-
-## Search Autocomplete
-- Start typing to see operator suggestions like `tag:`, `source:`, `since:`, `sort:`, etc.
-- After an operator, you'll get value suggestions:
-  - `source:` shows active sources from `/api/sources`
-  - `tag:` shows popular tags from `/api/tags`
-  - `region:` shows available regions from `/api/regions`
-  - `since:` / `until:` offer relative presets like `24h`, `7d`, `1m` (or type a date `YYYY-MM-DD`)
-  - `sort:` offers `rank`, `score`, `recency`
-  - `score:` and `delta24h:` offer quick comparators like `>70`, `<20`, etc.
-- Keyboard: ↑/↓ to move, Enter/Tab to apply, Esc to close. Click to select as well.
-
-## Recent Searches (per browser)
-- The dashboard saves up to 15 recent queries (operators + text) in `localStorage`.
-- Dedupe is case/whitespace-insensitive; newest wins.
-- Click any chip to re-run it instantly.
-- Click ★ to pin/unpin; pinned items float to the top.
-- Remove a single item with ✕, or **Clear history** to wipe all.
-- History is stored locally in your browser and does not sync across devices.
-
-### Protected Endpoints
-- `POST /api/ingest` - Trigger data ingestion (requires `Authorization: Bearer $CRON_SECRET`)
-
-### Query Parameters
-- `source` - Filter by data source (reddit, youtube, etc.)
-- `q` - Search topics
-- `region` - Filter by region
-- `since` - Filter by date (ISO string)
-- `limit` - Results per page (max 200)
-- `page` - Page number
-
-## 🔄 Data Ingestion
-
-### Manual Ingestion
-```bash
-curl -X POST \
-  -H "Authorization: Bearer $CRON_SECRET" \
-  http://localhost:3000/api/ingest
-```
-
-### Automated Ingestion (Vercel)
-Add a Scheduled Job in Vercel:
-- **URL**: `https://your-app.vercel.app/api/ingest`
-- **Headers**: `Authorization: Bearer $CRON_SECRET`
-- **Schedule**: `0 */6 * * *` (every 6 hours)
-
-### Local Development Cron
-Set `ENABLE_LOCAL_CRON=true` in `.env` for automatic ingestion every 5 minutes.
-
-## 🎨 Theming
-
-The application uses a dark theme with golden accents:
-- **Background**: `#000` (black)
-- **Accent**: `#e5c35a` (golden)
-- **Cards**: `#111` with `#222` borders
-- **Text**: White with opacity variations
-
-## 🧪 Testing
-
-```bash
-# Run tests
-pnpm test
-
-# Run tests with UI
-pnpm test --ui
-```
-
-## 📦 Production Deployment
-
-### Vercel
-1. Push this repo to GitHub/GitLab/Bitbucket and import it in Vercel.
-2. In **Project Settings → Environment Variables**, set:
-   - `DATABASE_URL`
-   - `REDIS_URL`
-   - `CRON_SECRET`
-   - `USE_SEARCH_MV=true`
-   - `SENTRY_DSN` (optional)
-3. Commit the provided `vercel.json` — Vercel registers Cron automatically on production deploys.
-   - `*/5 * * * *` → `POST /api/ingest`
-   - `0 2 * * *` → `POST /api/refresh-mv`
-   - `*/15 * * * *` → `GET /api/health`
-4. Vercel Cron sends `Authorization: Bearer $CRON_SECRET` to your functions. Your routes validate this before running the task.
-5. After first deploy:
-   - Run one manual ingest to seed data:
-     ```bash
-     curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://<your-domain>/api/ingest
-     ```
-   - Open `https://<your-domain>/` (dashboard).
-   - Check `https://<your-domain>/api/health`.
-
-### Docker (self-host)
-```bash
-docker compose -f docker-compose.prod.yml up -d
-# First-time DB setup:
-docker compose -f docker-compose.prod.yml exec web npx prisma migrate deploy
-```
-
-## 🔧 Development
-
-### Available Scripts
-- `pnpm dev` - Start development server
-- `pnpm build` - Build for production
-- `pnpm migrate` - Run database migrations
-- `pnpm test` - Run tests
-- `pnpm lint` - Run ESLint
-
-### Adding New Data Sources
-1. Create adapter in `src/integrations/`
-2. Implement `Adapter` interface
-3. Add to `activeAdapters()` in `src/integrations/index.ts`
-4. Update dashboard source filter
-
-## Switch from SQLite to PostgreSQL
-
-1) (Optional) Start local Postgres:
-   ```bash
-   npm run pg:up
-   ```
-
-2) Update your `.env` to use PostgreSQL:
-   ```bash
-   DATABASE_URL=postgresql://trender:trenderpw@localhost:5432/trender_ai?schema=public
-   ```
-
-3) Generate both Prisma clients:
-   ```bash
-   npm run prisma:generate:pg
-   npm run prisma:generate:sqlite
-   ```
-
-4) Create and apply PostgreSQL migrations:
-   ```bash
-   npm run db:migrate:pg
-   ```
-
-5) Copy data from SQLite to PostgreSQL:
-   ```bash
-   npm run db:copy:sqlite-to-pg
-   ```
-
-6) Refresh materialized view:
-   ```bash
-   npm run db:mv:refresh
-   ```
-
-7) Test the application:
-   ```bash
-   npm run dev
-   ```
-
-## 📈 Data Flow
-
-1. **Ingestion**: Cron job triggers `/api/ingest`
-2. **Fetching**: Active adapters fetch from external APIs
-3. **Scoring**: Raw data normalized to 0-100 scale
-4. **Storage**: Data saved to PostgreSQL
-5. **Caching**: Latest 100 items cached in Redis
-6. **Display**: Dashboard fetches from cache/DB
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create feature branch
-3. Add tests for new functionality
-4. Ensure all tests pass
-5. Submit pull request
-
-## Hardening Notes
-- **De-dupe:** Records are upserted by `(source, topic, observedBucket)` where `observedBucket = date_trunc('hour', observedAt)`. This prevents hourly duplicate spam while still allowing updates.
-- **Search MV:** When `USE_SEARCH_MV=true` and there's a text query, `/api/trends` uses `tr_trends_mv` for ranked FTS; nightly refresh at 02:00 if `ENABLE_LOCAL_CRON=true`. You can also call the refresh manually in a SQL console: `REFRESH MATERIALIZED VIEW CONCURRENTLY tr_trends_mv;`.
-- **API Guard:** All trend items are sanitized via Zod before returning; `tags` are always `string[]`.
-- **UX:** Dashboard shows skeletons on first load, an error toast on failures, and a Load-more button when more results exist.
-- **Sentry (optional):** Set `SENTRY_DSN` to enable capture on server and client. Basic PII scrubbing is enabled by default.
-
-## Search Troubleshooting
-- If typed search errors, check `/api/search-status`:
-  - `materializedView: false` → run migrations and refresh MV:
-    - `npx prisma migrate dev`
-    - `npm run db:mv:refresh`
-  - Or set `USE_SEARCH_MV=false` to always use base-table FTS.
-- The search API now falls back automatically to base-table FTS and lastly to `ILIKE` to avoid 500s on odd queries.
-
-## Categories (Config-Driven)
-- Edit `src/categories/config.ts` to add or tweak categories.
-- Each category maps to an operator-style query (e.g., `tag:ai since:7d sort:score`).
-- Selecting a category sets the search box to that query, runs the search, and syncs `?cat=<id>` in the URL.
-- "All" clears the category and shows the default feed.
-
-## Card Images
-- Records now store `imageUrl` and optional `images[]`.
-- `/api/img?u=<remote>` safely proxies remote images with caching and size guards—no need to whitelist domains in `next.config.js`.
-- Ingestion extracts thumbnails from Reddit (preview/thumbnail), YouTube (snippet.thumbnails), NewsAPI (`urlToImage`), CoinGecko (`image.large/small`), and Google Trends Trending Now (`image`).
-
-## Instagram Integration (Graph API)
-- Requires an **Instagram Business/Creator** account linked to a Facebook Page and a Meta app with Hashtag Search permissions.
-- Set env:
-  - `IG_USER_ID` — the numeric IG user id (Graph).
-  - `IG_LONG_LIVED_TOKEN` — 60-day long-lived token (renew periodically).
-  - `IG_DEFAULT_HASHTAGS` — comma list of hashtags to ingest (no `#`).
-- Test locally:
-  ```bash
-  curl "http://localhost:3000/api/instagram/hashtag?tag=ai"
-  ```
-
-### Open Graph image upgrades
-- When a record's `imageUrl` is missing or appears low-res, we fetch the article page and read its Open Graph/Twitter image tags to upgrade the thumbnail.
-- Cache: Redis (`OG_CACHE_TTL_SECONDS`, default 1 day).
-- Debug a URL:
-  ```bash
-  curl "http://localhost:3000/api/tools/opengraph?u=https://example.com"
-  ```
-
-## X (Twitter) integration
-- **Recent Search (v2)**: `/2/tweets/search/recent` with expansions for media & users.
-- **Trends (v1.1)**: `/1.1/trends/place.json` by WOEID (e.g., 23424977 = US).
-- Set these env vars:
-  - `X_BEARER_TOKEN` (required)
-  - `X_DEFAULT_QUERIES` (comma list)
-  - `X_TRENDS_WOEIDS` (comma list of WOEIDs)
-- Try it:
-  ```bash
-  curl "http://localhost:3000/api/x/search?q=ai"
-  curl "http://localhost:3000/api/x/trends?woeid=23424977"
-  ```
-
-## X (Twitter) Filtered Stream
-- Environment:
-  - `X_STREAM_ENABLED=true`
-  - `X_STREAM_RULES` — comma/newline separated search rules (v2 syntax)
-  - `X_STREAM_AUTO_START=true` (optional)
-  - `X_STREAM_BACKOFF_MAX_SEC` (default 60)
-- Endpoints:
-  - `POST /api/x/stream/start` — begin streaming
-  - `POST /api/x/stream/stop` — stop streaming
-  - `GET  /api/x/stream/rules` — list rules
-  - `POST /api/x/stream/rules` with `{ "mode":"replaceEnv" }` or `{ "mode":"deleteAll" }` or `{ "rules": ["<expr>", ...] }`
-- Notes:
-  - Stream requires the right API access/plan on X.
-  - This implementation maintains a single in-process connection with exponential backoff and writes incoming tweets to `TrendRecord` with `source="twitter"`.
-  - Recent Search also now **auto-expands quoted/retweeted media** so cards show images more reliably.
-
-## 📄 License
-
-MIT License - see LICENSE file for details.
+### Neon Postgres (no Docker)
+1) Copy `.env.example` → `.env` and paste your Neon **PG_URL** (keep `?sslmode=require`).
+2) Run `npm run db:migrate` (creates table & view).
+3) Start your 5-source worker (with the same PG_URL). If using the worker repo, ensure its `src/db.ts` includes SSL (this prompt patches it).
+4) Verify:
+   - `npm run db:test`
+   - Hit `/api/health/db` (Next.js) or run the worker once to see "ingested".

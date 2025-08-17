@@ -37,7 +37,7 @@ export default function SavedPostsSidebar() {
         </div>
         {topSaved.length === 0 ? (
           <div className="text-sm text-neutral-400 mt-3">
-            Nothing saved yet. Generate content and hit "Save to Board".
+            Nothing saved yet. Generate content and hit &quot;Save to Board&quot;.
           </div>
         ) : (
           <div className="mt-3 space-y-3">

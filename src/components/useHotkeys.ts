@@ -58,5 +58,5 @@ export function useHotkeys() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [router, toggleDensity]);
 }

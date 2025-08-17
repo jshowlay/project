@@ -7,7 +7,9 @@ import {
   Play, 
   Newspaper, 
   Twitter,
-  Globe
+  Globe,
+  BookOpen,
+  Instagram
 } from 'lucide-react';
 
 interface SourceChipsProps {
@@ -33,6 +35,12 @@ export function SourceChips({ sources, size = 'md' }: SourceChipsProps) {
     if (sourceLower.includes('twitter') || sourceLower.includes('x')) {
       return <Twitter className="h-3 w-3" />;
     }
+    if (sourceLower.includes('nytimes') || sourceLower.includes('nyt')) {
+      return <BookOpen className="h-3 w-3" />;
+    }
+    if (sourceLower.includes('instagram') || sourceLower.includes('ig')) {
+      return <Instagram className="h-3 w-3" />;
+    }
     return <Globe className="h-3 w-3" />;
   };
 
@@ -52,6 +60,12 @@ export function SourceChips({ sources, size = 'md' }: SourceChipsProps) {
     }
     if (sourceLower.includes('twitter') || sourceLower.includes('x')) {
       return 'bg-sky-500/20 text-sky-400 border-sky-500/30';
+    }
+    if (sourceLower.includes('nytimes') || sourceLower.includes('nyt')) {
+      return 'bg-purple-500/20 text-purple-400 border-purple-500/30';
+    }
+    if (sourceLower.includes('instagram') || sourceLower.includes('ig')) {
+      return 'bg-pink-500/20 text-pink-400 border-pink-500/30';
     }
     return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
   };

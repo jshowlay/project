@@ -301,51 +301,23 @@ export default function Page() {
         <Toast message={error} onClose={()=>setError('')} />
         <StickyHeader>
           <div className="mx-auto max-w-6xl px-4 py-2 sm:px-6 sm:py-3">
-            {/* Header: Logo + Inline Category Nav + (optional) right-side actions */}
+            {/* Header: Logo + Navigation + Right-side actions */}
             <header className="w-full flex items-center gap-4">
               {/* Left: Logo */}
               <div className="shrink-0">
                 <Logo size="lg" />
               </div>
 
-              {/* Center: Categories (inline, scrollable on small screens) */}
-              <nav
-                className="flex-1 overflow-x-auto no-scrollbar"
-                aria-label="Primary categories"
-              >
-                <div className="flex items-center gap-2 min-w-max">
-                  <button
-                    onClick={clearCategory}
-                    className={catId ? "px-3 py-1 rounded-full text-sm" : "px-3 py-1 rounded-full text-sm btn-accent"}
-                    style={catId ? { background:'#111', color:'#fff', border:'1px solid #222' } : {}}
-                  >
-                    All
-                  </button>
-                  {CATEGORIES.map(cat => (
-                    <button
-                      key={cat.id}
-                      onClick={()=>applyCategory(cat.id)}
-                      className={`px-3 py-1 rounded-full text-sm inline-flex items-center gap-2 ${catId === cat.id ? 'btn-accent' : ''}`}
-                      style={catId !== cat.id ? { background:'#111', color:'#fff', border:'1px solid #222' } : {}}
-                      title={cat.label}
-                    >
-                      <span>{cat.emoji ?? '•'}</span>
-                      <span className="whitespace-nowrap">{cat.label}</span>
-                    </button>
-                  ))}
-                </div>
+              {/* Center: Primary Navigation */}
+              <nav className="flex-1 hidden sm:flex items-center justify-center gap-2">
+                <PrimaryNav />
               </nav>
 
-              {/* Right: optional actions spot (keep empty or add buttons later) */}
+              {/* Right: Density Toggle */}
               <div className="shrink-0 hidden sm:flex items-center gap-4">
                 <DensityToggle />
-                <button onClick={()=>postJSON('/api/x/stream/start', {})} className="btn-accent">Live On</button>
-                <button onClick={()=>postJSON('/api/x/stream/stop', {})} className="px-3 py-2 rounded-xl" style={{ background:'#111', color:'#fff', border:'1px solid #222' }}>Live Off</button>
               </div>
             </header>
-            <div className="mt-2">
-              <PrimaryNav />
-            </div>
           </div>
         </StickyHeader>
 
@@ -365,7 +337,7 @@ export default function Page() {
                   value={q}
                   onChange={(e)=>{ setQ(e.target.value); setCatId(''); }} // typing clears category
                   onKeyDown={onKeyDown}
-                  placeholder={catId ? `Refine ${getCategory(catId)?.label}…` : 'Search (e.g., ai agents OR robotics -crypto, tag:crypto since:7d sort:score)…'}
+                  placeholder="Search trends (e.g., ai agents OR robotics -crypto, tag:crypto since:7d sort:score)…"
                   className="px-3 py-2 rounded-xl text-black flex-1 min-w-[260px]"
                 />
                 <select
@@ -382,6 +354,7 @@ export default function Page() {
                   <option value="alphavantage">Alpha Vantage</option>
                   <option value="google_trends">Google Trends</option>
                   <option value="instagram">Instagram</option>
+                  <option value="nytimes">NYTimes</option>
                   <option value="twitter">X (Twitter)</option>
                 </select>
                 <button onClick={commitSearch} className="btn-accent">

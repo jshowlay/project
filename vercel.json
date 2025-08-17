@@ -1,7 +1,31 @@
 {
   "crons": [
-    { "path": "/api/ingest", "schedule": "*/5 * * * *" },
-    { "path": "/api/refresh-mv", "schedule": "0 2 * * *" },
-    { "path": "/api/health", "schedule": "*/15 * * * *" }
-  ]
+    {
+      "path": "/api/cron/master",
+      "schedule": "*/15 * * * *"
+    }
+  ],
+  "functions": {
+    "app/api/cron/master/route.ts": {
+      "maxDuration": 300
+    },
+    "app/api/cron/youtube/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/cron/reddit/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/cron/nyt/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/cron/google-trends/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/cron/twitter/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/cron/tiktok/route.ts": {
+      "maxDuration": 60
+    }
+  }
 }

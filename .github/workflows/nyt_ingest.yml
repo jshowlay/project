@@ -1,0 +1,24 @@
+name: NYT Ingest
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch: {}
+concurrency:
+  group: nyt-ingest
+  cancel-in-progress: false
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '18' }
+      - run: npm ci
+      - run: |
+          echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> .env
+          echo "NYT_API_KEY=${{ secrets.NYT_API_KEY }}" >> .env
+          echo "NYT_TOP_SECTIONS=home,technology,business,world,science" >> .env
+          echo "NYT_MOSTPOPULAR_PERIODS=1,7" >> .env
+          echo "NYT_TIMESWIRE_HOURS=24" >> .env
+      - run: npm run ingest:nyt:once
+      - run: npm run enrich:nyt:semantics
