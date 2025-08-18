@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/master",
       "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/compute-trends",
+      "schedule": "0 * * * *"
     }
   ],
   "functions": {
@@ -26,6 +30,10 @@
     },
     "app/api/cron/tiktok/route.ts": {
       "maxDuration": 60
+    },
+    "app/api/cron/compute-trends/route.ts": {
+      "maxDuration": 300
     }
   }
 }
+

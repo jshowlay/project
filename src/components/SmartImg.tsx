@@ -182,10 +182,11 @@ interface AspectRatioSmartImgProps extends SmartImgProps {
 export function AspectRatioSmartImg({ 
   aspectRatio, 
   width, 
-  height, 
+  height,
+  widthHint,
   ...props 
 }: AspectRatioSmartImgProps) {
-  const effectiveWidth = width || 800;
+  const effectiveWidth = width || widthHint || 400;
   const effectiveHeight = height || Math.round(effectiveWidth / aspectRatio);
 
   return (
@@ -198,6 +199,7 @@ export function AspectRatioSmartImg({
           {...props}
           width={effectiveWidth}
           height={effectiveHeight}
+          widthHint={widthHint}
           className="w-full h-full"
         />
       </div>

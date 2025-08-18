@@ -1,0 +1,27 @@
+generator sqliteClient {
+  provider = "prisma-client-js"
+  output   = "./generated/sqlite"
+}
+
+datasource sqlite {
+  provider = "sqlite"
+  url      = "file:./trender.db" // adjust if your SQLite file is elsewhere
+}
+
+model TrendRecord {
+  id             String    @id @default(cuid())
+  source         String
+  topic          String
+  score          Float
+  delta24h       Float?
+  url            String?
+  region         String?
+  // NOTE: On SQLite you may have stored this as Json or String.
+  // Prisma will try to map your current shape; we will coerce in the copy script.
+  tags           String
+  raw            String?
+  observedAt     DateTime
+  language       String?
+  createdAt      DateTime  @default(now())
+  observedBucket DateTime?
+}

@@ -1,9 +1,9 @@
 import './globals.css';
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
-import { bootOnce } from '@/server/boot';
+// import { bootOnce } from '@/server/boot';
 import { DensityProvider } from '@/components/DensityProvider';
-bootOnce();
+// bootOnce();
 
 const inter = Inter({ subsets: ['latin'] });
 

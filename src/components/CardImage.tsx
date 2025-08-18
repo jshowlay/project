@@ -1,5 +1,5 @@
 'use client';
-import { AspectRatioSmartImg } from './SmartImg';
+import SmartImg from './SmartImg';
 
 type Props = {
   remoteUrl: string;       // original http(s) image
@@ -21,14 +21,13 @@ export default function CardImage({
 
   return (
     <div className="mb-3 overflow-hidden rounded-xl relative" style={{ background:'#0e0e0e', border:'1px solid #1b1b1b' }}>
-      <AspectRatioSmartImg
+      <SmartImg
         src={remoteUrl}
         alt={alt}
-        aspectRatio={aspectRatio}
-        width={Math.min(maxW, 800)}
+        widthHint={400}
         formats={['webp', 'jpeg']}
         sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-        className="w-full h-full object-cover"
+        className="w-full h-48 object-cover rounded-xl"
         placeholder="empty"
         onError={() => {
           console.warn(`Failed to load image: ${remoteUrl}`);

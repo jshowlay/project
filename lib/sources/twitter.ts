@@ -59,14 +59,14 @@ export class TwitterSource {
   private accessTokenSecret: string;
 
   constructor() {
-    this.bearerToken = process.env.TWITTER_BEARER_TOKEN || '';
+    this.bearerToken = process.env.X_BEARER_TOKEN || process.env.TWITTER_BEARER_TOKEN || '';
     this.apiKey = process.env.TWITTER_API_KEY || '';
     this.apiSecret = process.env.TWITTER_API_SECRET || '';
     this.accessToken = process.env.TWITTER_ACCESS_TOKEN || '';
     this.accessTokenSecret = process.env.TWITTER_ACCESS_TOKEN_SECRET || '';
     
     if (!this.bearerToken) {
-      throw new Error('TWITTER_BEARER_TOKEN environment variable is required');
+      throw new Error('X_BEARER_TOKEN or TWITTER_BEARER_TOKEN environment variable is required');
     }
   }
 

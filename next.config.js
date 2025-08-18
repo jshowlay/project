@@ -2,6 +2,14 @@
 const baseConfig = {
   reactStrictMode: true,
   productionBrowserSourceMaps: true,
+  async rewrites() {
+    return [
+      {
+        source: '/cron/compute-trends',
+        destination: '/api/cron/compute-trends',
+      },
+    ];
+  },
   images: {
     remotePatterns: [
       {
@@ -54,10 +62,11 @@ const baseConfig = {
 };
 
 let cfg = baseConfig;
-try {
-  if (process.env.SENTRY_DSN) {
-    const { withSentryConfig } = require('@sentry/nextjs');
-    cfg = withSentryConfig(baseConfig, { silent: true });
-  }
-} catch {}
+// Temporarily disable Sentry to fix chunk loading issues
+// try {
+//   if (process.env.SENTRY_DSN) {
+//     const { withSentryConfig } = require('@sentry/nextjs');
+//     cfg = withSentryConfig(baseConfig, { silent: true });
+//   }
+// } catch {}
 module.exports = cfg;

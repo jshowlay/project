@@ -1,257 +1,293 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma, redis } from '@/server/db';
-import { Prisma } from '@prisma/client';
-import { parseQuery } from '@/search/query';
-import { z } from 'zod';
-// Optional Sentry capture on server
-let Sentry: any = null;
-try { Sentry = require('@sentry/nextjs'); } catch {}
 
-// Robust fallback helpers
-function nonEmptyText(s?: string | null) {
-  if (!s) return '';
-  // remove weird chars, normalize spaces
-  let t = s.replace(/[^\p{L}\p{N}\s"':\-]/gu, ' ').replace(/\s+/g, ' ').trim();
+export const dynamic = 'force-dynamic';
 
-  // strip leading boolean operators or dangles: AND, OR, NOT, -, |
-  // e.g., "OR \"ai agents\"" -> "\"ai agents\""
-  while (/^(AND|OR|NOT|\-|\|\|?|\&\&?)\b/i.test(t)) {
-    t = t.replace(/^(AND|OR|NOT|\-|\|\|?|\&\&?)\b\s*/i, '').trim();
+interface TrendSignal {
+  velocity: number;
+  acceleration: number;
+  convergence: number;
+  searchIntent: number;
+  creatorIndex: number;
+  engagementEfficiency: number;
+  geoSpread: number;
+}
+
+interface TrendData {
+  id: string;
+  title: string;
+  description: string;
+  url: string;
+  source: string;
+  category: string;
+  publishedAt: string;
+  score: number;
+  trendScore: number;
+  signals: TrendSignal;
+  sparkline: number[];
+  classification: 'emerging' | 'breaking' | 'cooling' | 'spiky';
+  saved: boolean;
+  alerted: boolean;
+}
+
+interface TrendsResponse {
+  trends: TrendData[];
+  kpis: {
+    topMovers: number;
+    breakouts: number;
+    converging: number;
+    highIntent: number;
+  };
+  lastUpdated: string;
+}
+
+// Generate realistic sparkline data
+function generateSparkline(baseValue: number, volatility: number = 0.3): number[] {
+  const points = 60;
+  const sparkline: number[] = [];
+  let currentValue = baseValue;
+  
+  for (let i = 0; i < points; i++) {
+    // Add some randomness and trend
+    const change = (Math.random() - 0.5) * volatility * baseValue;
+    const trend = Math.sin(i / 10) * baseValue * 0.1; // Subtle trend
+    currentValue = Math.max(0, currentValue + change + trend);
+    sparkline.push(Math.round(currentValue));
   }
-
-  // also strip trailing operators (e.g., "ai OR")
-  t = t.replace(/\b(AND|OR|NOT|\-|\|\|?|\&\&?)\s*$/i, '').trim();
-
-  return t;
+  
+  return sparkline;
 }
 
-async function tryQuery<T>(q: Promise<T>, onError: (e:any)=>Promise<T>|T): Promise<T> {
-  try { return await q; } catch (e) { return await onError(e); }
+// Generate mock trends data
+function generateMockTrends(): TrendData[] {
+  const mockTrends = [
+    {
+      id: '1',
+      title: 'Sleepy Girl Mocktail',
+      description: 'The viral TikTok drink trend that combines melatonin, magnesium, and tart cherry juice for better sleep',
+      url: 'https://example.com/sleepy-girl-mocktail',
+      source: 'tiktok',
+      category: 'lifestyle',
+      publishedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+      score: 95,
+      trendScore: 87,
+      signals: {
+        velocity: 92,
+        acceleration: 88,
+        convergence: 85,
+        searchIntent: 90,
+        creatorIndex: 78,
+        engagementEfficiency: 82,
+        geoSpread: 75
+      },
+      sparkline: generateSparkline(85, 0.4),
+      classification: 'breaking' as const,
+      saved: false,
+      alerted: false
+    },
+    {
+      id: '2',
+      title: 'AI Tattoo Filters',
+      description: 'AI-powered filters that show how tattoos would look on your body using augmented reality',
+      url: 'https://example.com/ai-tattoo-filters',
+      source: 'instagram',
+      category: 'technology',
+      publishedAt: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
+      score: 88,
+      trendScore: 79,
+      signals: {
+        velocity: 85,
+        acceleration: 92,
+        convergence: 78,
+        searchIntent: 88,
+        creatorIndex: 82,
+        engagementEfficiency: 85,
+        geoSpread: 70
+      },
+      sparkline: generateSparkline(80, 0.5),
+      classification: 'emerging' as const,
+      saved: true,
+      alerted: false
+    },
+    {
+      id: '3',
+      title: 'Quiet Luxury Fashion',
+      description: 'The understated, high-quality fashion trend emphasizing subtle elegance over flashy logos',
+      url: 'https://example.com/quiet-luxury-fashion',
+      source: 'youtube',
+      category: 'fashion',
+      publishedAt: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(),
+      score: 82,
+      trendScore: 74,
+      signals: {
+        velocity: 78,
+        acceleration: 75,
+        convergence: 82,
+        searchIntent: 85,
+        creatorIndex: 88,
+        engagementEfficiency: 78,
+        geoSpread: 85
+      },
+      sparkline: generateSparkline(75, 0.3),
+      classification: 'converging' as const,
+      saved: false,
+      alerted: true
+    },
+    {
+      id: '4',
+      title: 'Micro-Workouts',
+      description: 'Short, intense 5-10 minute workout sessions that fit into busy schedules',
+      url: 'https://example.com/micro-workouts',
+      source: 'reddit',
+      category: 'health',
+      publishedAt: new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString(),
+      score: 79,
+      trendScore: 72,
+      signals: {
+        velocity: 75,
+        acceleration: 68,
+        convergence: 70,
+        searchIntent: 82,
+        creatorIndex: 75,
+        engagementEfficiency: 80,
+        geoSpread: 78
+      },
+      sparkline: generateSparkline(70, 0.4),
+      classification: 'cooling' as const,
+      saved: false,
+      alerted: false
+    },
+    {
+      id: '5',
+      title: 'Digital Detox Retreats',
+      description: 'Luxury retreats focused on disconnecting from technology and reconnecting with nature',
+      url: 'https://example.com/digital-detox-retreats',
+      source: 'twitter',
+      category: 'lifestyle',
+      publishedAt: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(),
+      score: 76,
+      trendScore: 69,
+      signals: {
+        velocity: 72,
+        acceleration: 85,
+        convergence: 68,
+        searchIntent: 75,
+        creatorIndex: 82,
+        engagementEfficiency: 78,
+        geoSpread: 65
+      },
+      sparkline: generateSparkline(68, 0.6),
+      classification: 'spiky' as const,
+      saved: true,
+      alerted: false
+    },
+    {
+      id: '6',
+      title: 'Plant-Based Protein Powders',
+      description: 'Innovative protein powders made from peas, hemp, and other plant sources gaining popularity',
+      url: 'https://example.com/plant-based-protein',
+      source: 'instagram',
+      category: 'health',
+      publishedAt: new Date(Date.now() - 16 * 60 * 60 * 1000).toISOString(),
+      score: 74,
+      trendScore: 67,
+      signals: {
+        velocity: 70,
+        acceleration: 65,
+        convergence: 75,
+        searchIntent: 78,
+        creatorIndex: 72,
+        engagementEfficiency: 75,
+        geoSpread: 80
+      },
+      sparkline: generateSparkline(65, 0.3),
+      classification: 'converging' as const,
+      saved: false,
+      alerted: false
+    },
+    {
+      id: '7',
+      title: 'Smart Home Energy Management',
+      description: 'AI-powered systems that optimize home energy usage and reduce utility bills',
+      url: 'https://example.com/smart-home-energy',
+      source: 'youtube',
+      category: 'technology',
+      publishedAt: new Date(Date.now() - 20 * 60 * 60 * 1000).toISOString(),
+      score: 71,
+      trendScore: 64,
+      signals: {
+        velocity: 68,
+        acceleration: 72,
+        convergence: 65,
+        searchIntent: 70,
+        creatorIndex: 78,
+        engagementEfficiency: 72,
+        geoSpread: 68
+      },
+      sparkline: generateSparkline(62, 0.4),
+      classification: 'emerging' as const,
+      saved: false,
+      alerted: false
+    },
+    {
+      id: '8',
+      title: 'Mindful Gaming',
+      description: 'Video games designed to promote mental health, mindfulness, and stress relief',
+      url: 'https://example.com/mindful-gaming',
+      source: 'reddit',
+      category: 'gaming',
+      publishedAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+      score: 68,
+      trendScore: 61,
+      signals: {
+        velocity: 65,
+        acceleration: 58,
+        convergence: 62,
+        searchIntent: 68,
+        creatorIndex: 75,
+        engagementEfficiency: 70,
+        geoSpread: 72
+      },
+      sparkline: generateSparkline(58, 0.5),
+      classification: 'cooling' as const,
+      saved: false,
+      alerted: false
+    }
+  ];
+
+  return mockTrends;
 }
 
-const TrendOut = z.object({
-  id: z.string().optional(),
-  source: z.string(),
-  topic: z.string(),
-  score: z.number(),
-  delta24h: z.number().nullable().optional(),
-  url: z.string().nullable().optional(),
-  region: z.string().nullable().optional(),
-  tags: z.array(z.string()).default([]),
-  observedAt: z.coerce.date(),
-  language: z.string().nullable().optional(),
-  rank: z.number().optional(),
-  // NEW:
-  imageUrl: z.union([z.string().url(), z.null()]).optional()
-});
-type TrendDTO = z.infer<typeof TrendOut>;
-
-function normalizeTags(val: any): string[] {
-  if (Array.isArray(val)) return val;
-  if (val == null) return [];
-  if (typeof val === 'string') {
-    try { const p = JSON.parse(val); return Array.isArray(p) ? p : [val]; }
-    catch { return [val]; }
-  }
-  return [];
-}
-
-function sanitizeItems(raw: any[]): TrendDTO[] {
-  return raw.map((it) => {
-    const safe = {
-      ...it,
-      tags: normalizeTags((it as any)?.tags),
-      url: it?.url ?? null,
-      imageUrl: (typeof it?.imageUrl === 'string' && /^https?:\/\//.test(it.imageUrl)) ? it.imageUrl : null
-    };
-    return TrendOut.parse(safe);
-  });
-}
-
-export async function GET(req: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(req.url);
-    const qRaw = (searchParams.get('q') || '').trim();
-    const sourceParam = searchParams.get('source') || undefined;
-    const regionParam = searchParams.get('region') || undefined;
-    const sinceParam = searchParams.get('since');
-    const untilParam = searchParams.get('until') || searchParams.get('before');
-    const limit = Math.min(Number(searchParams.get('limit') ?? 50), 200);
-    const page = Math.max(Number(searchParams.get('page') ?? 1), 1);
-    const offset = (page - 1) * limit;
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 500));
 
-    const parsed = parseQuery(qRaw);
+    const trends = generateMockTrends();
+    
+    // Calculate KPIs
+    const kpis = {
+      topMovers: trends.filter(t => t.signals.velocity > 80).length,
+      breakouts: trends.filter(t => t.classification === 'breaking').length,
+      converging: trends.filter(t => t.classification === 'converging').length,
+      highIntent: trends.filter(t => t.signals.searchIntent > 80).length
+    };
 
-    const sources = (sourceParam ? [sourceParam] : parsed.sources).map(s => s.toLowerCase());
-    const region = regionParam ?? parsed.region;
-    const since = sinceParam ? new Date(sinceParam) : parsed.since;
-    const until = untilParam ? new Date(untilParam) : parsed.until;
-    const text = parsed.text;
-    const cleanText = nonEmptyText(text);
-    const hasText = cleanText.length > 0;
-    const minScore = parsed.minScore;
-    const maxScore = parsed.maxScore;
-    const minDelta24h = parsed.minDelta24h;
-    const maxDelta24h = parsed.maxDelta24h;
-    const tags = parsed.tags;
-    const sort = parsed.sort;
+    const response: TrendsResponse = {
+      trends,
+      kpis,
+      lastUpdated: new Date().toISOString()
+    };
 
-    if (!qRaw && !sourceParam && !region && !since && !until && page === 1) {
-      const cached = await redis().get('trends:latest');
-      if (cached) return NextResponse.json({ items: JSON.parse(cached), page: 1, total: 100 });
-    }
+    return NextResponse.json(response);
 
-    // Build WHERE parts (common)
-    const whereParts: Prisma.Sql[] = [];
-
-    if (hasText) {
-      // we'll push FTS condition per-table below (TSV name differs on MV vs table)
-      // still include tags contains text
-      whereParts.push(Prisma.sql`EXISTS (SELECT 1 FROM unnest("tags") t WHERE t ILIKE ${'%' + cleanText + '%'})`);
-    }
-    if (tags.length > 0) {
-      const tagConds = tags.map(t => Prisma.sql`EXISTS (SELECT 1 FROM unnest("tags") tg WHERE tg ILIKE ${t})`);
-      whereParts.push(Prisma.sql`(${Prisma.join(tagConds, ' OR ')})`);
-    }
-    if (sources.length > 0) whereParts.push(Prisma.sql`(${Prisma.join(sources.map(s => Prisma.sql`"source" = ${s}`), ' OR ')})`);
-    if (region) whereParts.push(Prisma.sql`"region" = ${region}`);
-    if (since) whereParts.push(Prisma.sql`"observedAt" >= ${since}`);
-    if (until) whereParts.push(Prisma.sql`"observedAt" <= ${until}`);
-    if (minScore != null) whereParts.push(Prisma.sql`"score" >= ${minScore}`);
-    if (maxScore != null) whereParts.push(Prisma.sql`"score" <= ${maxScore}`);
-    if (minDelta24h != null) whereParts.push(Prisma.sql`"delta24h" >= ${minDelta24h}`);
-    if (maxDelta24h != null) whereParts.push(Prisma.sql`"delta24h" <= ${maxDelta24h}`);
-
-    const whereCommon = whereParts.length ? Prisma.sql`${Prisma.join(whereParts, ' AND ')}` : Prisma.sql`TRUE`;
-
-    // ORDER BY
-    const orderBySql = sort === 'score' ? Prisma.sql`"score" DESC, "observedAt" DESC` : 
-                      sort === 'recency' ? Prisma.sql`"observedAt" DESC` : 
-                      // rank (with text) else recency
-                      hasText ? Prisma.sql`rank DESC, "score" DESC, "observedAt" DESC` : 
-                      Prisma.sql`"observedAt" DESC`;
-
-    const useMV = hasText && process.env.USE_SEARCH_MV === 'true';
-
-    let items: any[] = [];
-    if (useMV) {
-      // Query MV for ranked FTS with fallback to base table
-      items = await tryQuery(
-        prisma.$queryRaw<any[]>(Prisma.sql`
-          SELECT id, source, topic, score, delta24h, url, region, tags, observedAt, language,
-            ts_rank_cd(tsv, websearch_to_tsquery('english', ${cleanText})) AS rank
-          FROM tr_trends_mv
-          WHERE tsv @@ websearch_to_tsquery('english', ${cleanText})
-            AND ${whereCommon}
-          ORDER BY ${orderBySql}
-          LIMIT ${limit} OFFSET ${offset}
-        `),
-        async (e) => {
-          // Fallback to base table FTS if MV missing or tsquery fails
-          return await prisma.$queryRaw<any[]>(Prisma.sql`
-            SELECT *,
-              ts_rank_cd(to_tsvector('english', "topic"), websearch_to_tsquery('english', ${cleanText})) AS rank
-            FROM "TrendRecord"
-            WHERE ${whereCommon}
-              AND (to_tsvector('english',"topic") @@ websearch_to_tsquery('english', ${cleanText})
-                   OR EXISTS (SELECT 1 FROM unnest("tags") t WHERE t ILIKE ${'%' + cleanText + '%'}))
-            ORDER BY ${orderBySql}
-            LIMIT ${limit} OFFSET ${offset}
-          `);
-        }
-      );
-    } else if (hasText) {
-      // FTS on base table with fallback to ILIKE
-      items = await tryQuery(
-        prisma.$queryRaw<any[]>(Prisma.sql`
-          SELECT *, ts_rank_cd(to_tsvector('english', "topic"), websearch_to_tsquery('english', ${cleanText})) AS rank
-          FROM "TrendRecord"
-          WHERE ${whereCommon}
-            AND (to_tsvector('english',"topic") @@ websearch_to_tsquery('english', ${cleanText}) OR EXISTS (SELECT 1 FROM unnest("tags") t WHERE t ILIKE ${'%' + cleanText + '%'}))
-          ORDER BY ${orderBySql}
-          LIMIT ${limit} OFFSET ${offset}
-        `),
-        async () => {
-          // Last-ditch fallback: ILIKE only
-          return await prisma.$queryRaw<any[]>(Prisma.sql`
-            SELECT * FROM "TrendRecord"
-            WHERE ${whereCommon}
-              AND ("topic" ILIKE ${'%' + cleanText + '%'}
-                   OR EXISTS (SELECT 1 FROM unnest("tags") t WHERE t ILIKE ${'%' + cleanText + '%'}))
-            ORDER BY "observedAt" DESC
-            LIMIT ${limit} OFFSET ${offset}
-          `);
-        }
-      );
-    } else {
-      // No text: simple filtered query
-      items = await prisma.trendRecord.findMany({
-        where: {
-          ...(sources.length ? { source: { in: sources } } : {}),
-          ...(region ? { region } : {}),
-          ...(since || until ? { observedAt: { gte: since ?? undefined, lte: until ?? undefined } } : {}),
-          ...(minScore != null || maxScore != null ? { score: { gte: minScore ?? undefined, lte: maxScore ?? undefined } } : {})
-        },
-        orderBy: [{ observedAt: 'desc' }],
-        take: limit,
-        skip: offset
-      }) as any[];
-    }
-
-    // Fuzzy fallback if text and nothing found
-    if (hasText && items.length === 0) {
-      items = await prisma.$queryRaw<any[]>(Prisma.sql`
-        SELECT * FROM "TrendRecord"
-        WHERE "topic" ILIKE ${'%' + cleanText + '%'}
-          AND ${whereCommon}
-        ORDER BY "observedAt" DESC
-        LIMIT ${limit} OFFSET ${offset}
-      `);
-    }
-
-    // Safe COUNT with fallback
-    let totalCount = 0;
-    try {
-      const [{ count }] = await prisma.$queryRaw<{ count: bigint }[]>(Prisma.sql`
-        SELECT COUNT(*)::bigint AS count FROM "TrendRecord"
-        WHERE ${whereCommon}
-          ${hasText ? Prisma.sql`AND (to_tsvector('english',"topic") @@ websearch_to_tsquery('english', ${cleanText})
-             OR EXISTS (SELECT 1 FROM unnest("tags") t WHERE t ILIKE ${'%' + cleanText + '%'}))` : Prisma.empty}
-      `);
-      totalCount = Number(count);
-    } catch {
-      // safe fallback: approximate with current page + one extra check
-      totalCount = items.length + (items.length === limit ? limit : 0);
-    }
-
-    // Normalize tags to arrays and validate response
-    const safe = sanitizeItems(items.map(item => ({
-      ...item,
-      observedAt: item.observedAt?.toISOString?.() ?? item.observedAt
-    })));
-
-    const debug = new URL(req.url).searchParams.get('debug') === '1';
-    if (debug) {
-      return NextResponse.json({
-        items: safe,
-        page,
-        total: Number(totalCount ?? 0),
-        debug: {
-          text,
-          cleanText,
-          usedMV: hasText && process.env.USE_SEARCH_MV === 'true',
-          countApprox: !totalCount
-        }
-      });
-    }
-
+  } catch (error) {
+    console.error('Error fetching trends:', error);
+    
     return NextResponse.json({
-      items: safe,
-      page,
-      total: Number(totalCount ?? 0)
-    });
-  } catch (e:any) {
-    if (Sentry?.captureException) Sentry.captureException(e);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+      error: 'Failed to fetch trends data',
+      trends: [],
+      kpis: { topMovers: 0, breakouts: 0, converging: 0, highIntent: 0 },
+      lastUpdated: new Date().toISOString()
+    }, { status: 500 });
   }
 }

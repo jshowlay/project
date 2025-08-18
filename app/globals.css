@@ -187,3 +187,7 @@ html, body { overscroll-behavior-y: contain; }
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+/* TrenderAI utilities */
+@keyframes spin { to { transform: rotate(360deg) } }
+.animate-spin-slow { animation: spin 3s linear infinite; }

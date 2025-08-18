@@ -1,0 +1,23 @@
+TrenderAI Full Backup
+====================
+
+Backup Date: $(date)
+Backup Type: Manual Full Application Backup
+
+Contents:
+- Source code (excluding node_modules, .next, etc.)
+- Configuration files
+- Prisma schema
+- Package dependencies
+
+System Info:
+- OS: $(uname -s)
+- Architecture: $(uname -m)
+- Node Version: $(node --version 2>/dev/null || echo "Not available")
+- NPM Version: $(npm --version 2>/dev/null || echo "Not available")
+- PNPM Version: $(pnpm --version 2>/dev/null || echo "Not available")
+
+Git Info:
+- Branch: $(git branch --show-current 2>/dev/null || echo "Not available")
+- Commit: $(git rev-parse HEAD 2>/dev/null || echo "Not available")
+

@@ -1,0 +1,37 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("TIKTOK_DATABASE_URL")
+}
+
+model TikTokAccount {
+  id           String   @id @default(cuid())
+  openId       String   @unique
+  displayName  String?
+  avatarUrl    String?
+  unionId      String?
+  createdAt    DateTime @default(now())
+  videos       TikTokVideo[]
+}
+
+model TikTokVideo {
+  id           String   @id
+  accountId    String
+  account      TikTokAccount @relation(fields: [accountId], references: [id])
+  description  String?
+  shareUrl     String?
+  durationSec  Int?
+  width        Int?
+  height        Int?
+  likeCount    Int?     @default(0)
+  commentCount Int?     @default(0)
+  shareCount   Int?     @default(0)
+  viewCount    Int?     @default(0)
+  createdAt    DateTime @default(now())
+  postedAt     DateTime?
+  hashtags     String?  // Store as JSON string
+  musicTitle   String?
+}
