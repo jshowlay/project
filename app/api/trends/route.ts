@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/server/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,7 +25,7 @@ interface TrendData {
   trendScore: number;
   signals: TrendSignal;
   sparkline: number[];
-  classification: 'emerging' | 'breaking' | 'cooling' | 'spiky';
+  classification: 'emerging' | 'breaking' | 'cooling' | 'spiky' | 'converging';
   saved: boolean;
   alerted: boolean;
 }
@@ -50,221 +51,118 @@ function generateSparkline(baseValue: number, volatility: number = 0.3): number[
     // Add some randomness and trend
     const change = (Math.random() - 0.5) * volatility * baseValue;
     const trend = Math.sin(i / 10) * baseValue * 0.1; // Subtle trend
-    currentValue = Math.max(0, currentValue + change + trend);
-    sparkline.push(Math.round(currentValue));
+    currentValue = Math.max(0, Math.round(currentValue + change + trend));
+    sparkline.push(currentValue);
   }
   
   return sparkline;
 }
 
-// Generate mock trends data
-function generateMockTrends(): TrendData[] {
-  const mockTrends = [
-    {
-      id: '1',
-      title: 'Sleepy Girl Mocktail',
-      description: 'The viral TikTok drink trend that combines melatonin, magnesium, and tart cherry juice for better sleep',
-      url: 'https://example.com/sleepy-girl-mocktail',
-      source: 'tiktok',
-      category: 'lifestyle',
-      publishedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-      score: 95,
-      trendScore: 87,
-      signals: {
-        velocity: 92,
-        acceleration: 88,
-        convergence: 85,
-        searchIntent: 90,
-        creatorIndex: 78,
-        engagementEfficiency: 82,
-        geoSpread: 75
-      },
-      sparkline: generateSparkline(85, 0.4),
-      classification: 'breaking' as const,
-      saved: false,
-      alerted: false
-    },
-    {
-      id: '2',
-      title: 'AI Tattoo Filters',
-      description: 'AI-powered filters that show how tattoos would look on your body using augmented reality',
-      url: 'https://example.com/ai-tattoo-filters',
-      source: 'instagram',
-      category: 'technology',
-      publishedAt: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
-      score: 88,
-      trendScore: 79,
-      signals: {
-        velocity: 85,
-        acceleration: 92,
-        convergence: 78,
-        searchIntent: 88,
-        creatorIndex: 82,
-        engagementEfficiency: 85,
-        geoSpread: 70
-      },
-      sparkline: generateSparkline(80, 0.5),
-      classification: 'emerging' as const,
-      saved: true,
-      alerted: false
-    },
-    {
-      id: '3',
-      title: 'Quiet Luxury Fashion',
-      description: 'The understated, high-quality fashion trend emphasizing subtle elegance over flashy logos',
-      url: 'https://example.com/quiet-luxury-fashion',
-      source: 'youtube',
-      category: 'fashion',
-      publishedAt: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(),
-      score: 82,
-      trendScore: 74,
-      signals: {
-        velocity: 78,
-        acceleration: 75,
-        convergence: 82,
-        searchIntent: 85,
-        creatorIndex: 88,
-        engagementEfficiency: 78,
-        geoSpread: 85
-      },
-      sparkline: generateSparkline(75, 0.3),
-      classification: 'converging' as const,
-      saved: false,
-      alerted: true
-    },
-    {
-      id: '4',
-      title: 'Micro-Workouts',
-      description: 'Short, intense 5-10 minute workout sessions that fit into busy schedules',
-      url: 'https://example.com/micro-workouts',
-      source: 'reddit',
-      category: 'health',
-      publishedAt: new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString(),
-      score: 79,
-      trendScore: 72,
-      signals: {
-        velocity: 75,
-        acceleration: 68,
-        convergence: 70,
-        searchIntent: 82,
-        creatorIndex: 75,
-        engagementEfficiency: 80,
-        geoSpread: 78
-      },
-      sparkline: generateSparkline(70, 0.4),
-      classification: 'cooling' as const,
-      saved: false,
-      alerted: false
-    },
-    {
-      id: '5',
-      title: 'Digital Detox Retreats',
-      description: 'Luxury retreats focused on disconnecting from technology and reconnecting with nature',
-      url: 'https://example.com/digital-detox-retreats',
-      source: 'twitter',
-      category: 'lifestyle',
-      publishedAt: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(),
-      score: 76,
-      trendScore: 69,
-      signals: {
-        velocity: 72,
-        acceleration: 85,
-        convergence: 68,
-        searchIntent: 75,
-        creatorIndex: 82,
-        engagementEfficiency: 78,
-        geoSpread: 65
-      },
-      sparkline: generateSparkline(68, 0.6),
-      classification: 'spiky' as const,
-      saved: true,
-      alerted: false
-    },
-    {
-      id: '6',
-      title: 'Plant-Based Protein Powders',
-      description: 'Innovative protein powders made from peas, hemp, and other plant sources gaining popularity',
-      url: 'https://example.com/plant-based-protein',
-      source: 'instagram',
-      category: 'health',
-      publishedAt: new Date(Date.now() - 16 * 60 * 60 * 1000).toISOString(),
-      score: 74,
-      trendScore: 67,
-      signals: {
-        velocity: 70,
-        acceleration: 65,
-        convergence: 75,
-        searchIntent: 78,
-        creatorIndex: 72,
-        engagementEfficiency: 75,
-        geoSpread: 80
-      },
-      sparkline: generateSparkline(65, 0.3),
-      classification: 'converging' as const,
-      saved: false,
-      alerted: false
-    },
-    {
-      id: '7',
-      title: 'Smart Home Energy Management',
-      description: 'AI-powered systems that optimize home energy usage and reduce utility bills',
-      url: 'https://example.com/smart-home-energy',
-      source: 'youtube',
-      category: 'technology',
-      publishedAt: new Date(Date.now() - 20 * 60 * 60 * 1000).toISOString(),
-      score: 71,
-      trendScore: 64,
-      signals: {
-        velocity: 68,
-        acceleration: 72,
-        convergence: 65,
-        searchIntent: 70,
-        creatorIndex: 78,
-        engagementEfficiency: 72,
-        geoSpread: 68
-      },
-      sparkline: generateSparkline(62, 0.4),
-      classification: 'emerging' as const,
-      saved: false,
-      alerted: false
-    },
-    {
-      id: '8',
-      title: 'Mindful Gaming',
-      description: 'Video games designed to promote mental health, mindfulness, and stress relief',
-      url: 'https://example.com/mindful-gaming',
-      source: 'reddit',
-      category: 'gaming',
-      publishedAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-      score: 68,
-      trendScore: 61,
-      signals: {
-        velocity: 65,
-        acceleration: 58,
-        convergence: 62,
-        searchIntent: 68,
-        creatorIndex: 75,
-        engagementEfficiency: 70,
-        geoSpread: 72
-      },
-      sparkline: generateSparkline(58, 0.5),
-      classification: 'cooling' as const,
-      saved: false,
-      alerted: false
-    }
-  ];
+// Convert database record to rich trend data
+function toRichTrendData(record: any): TrendData {
+  const tags = Array.isArray(record.tags) ? record.tags : [];
+  const category = tags.find(t => ['lifestyle', 'technology', 'fashion', 'health', 'gaming'].includes(t)) || 'general';
+  
+  // Generate mock signals based on score and delta24h
+  const baseScore = record.score || 50;
+  const delta = record.delta24h || 0;
+  const signals: TrendSignal = {
+    velocity: Math.min(100, Math.max(0, baseScore + delta * 0.5)),
+    acceleration: Math.min(100, Math.max(0, delta * 2)),
+    convergence: Math.min(100, Math.max(0, baseScore - Math.abs(delta) * 0.3)),
+    searchIntent: Math.min(100, Math.max(0, baseScore + delta * 0.2)),
+    creatorIndex: Math.min(100, Math.max(0, baseScore - 10)),
+    engagementEfficiency: Math.min(100, Math.max(0, baseScore + 5)),
+    geoSpread: Math.min(100, Math.max(0, baseScore - 15))
+  };
 
-  return mockTrends;
+  // Determine classification based on signals
+  let classification: TrendData['classification'] = 'emerging';
+  if (signals.velocity > 85 && signals.acceleration > 80) classification = 'breaking';
+  else if (signals.convergence > 80) classification = 'converging';
+  else if (Math.abs(signals.acceleration) > 70) classification = 'spiky';
+  else if (signals.velocity < 60) classification = 'cooling';
+
+  return {
+    id: record.id,
+    title: record.topic,
+    description: `${record.topic} trend from ${record.source}`,
+    url: record.url || `https://example.com/${record.source}/${record.topic}`,
+    source: record.source,
+    category,
+    publishedAt: record.observedAt,
+    score: baseScore,
+    trendScore: record.trend_score || baseScore,
+    signals,
+    sparkline: generateSparkline(baseScore, 0.3),
+    classification,
+    saved: false,
+    alerted: false
+  };
+}
+
+// Convert database record to legacy item format
+function toLegacyItem(record: any) {
+  return {
+    id: record.id,
+    source: record.source,
+    topic: record.topic,
+    score: record.trend_score || record.score,
+    delta24h: record.delta24h,
+    url: record.url,
+    region: record.region || 'US',
+    tags: Array.isArray(record.tags) ? record.tags : [],
+    observedAt: record.observedAt,
+    imageUrl: record.imageUrl,
+  };
 }
 
 export async function GET(request: NextRequest) {
   try {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 500));
+    const { searchParams } = request.nextUrl;
+    const hasLegacyParams = ['q', 'source', 'page', 'limit'].some(k => searchParams.has(k));
 
-    const trends = generateMockTrends();
+    if (hasLegacyParams) {
+      // Legacy homepage shape: { items, total }
+      const q = (searchParams.get('q') || '').trim();
+      const src = (searchParams.get('source') || '').trim();
+      const page = Math.max(parseInt(searchParams.get('page') || '1', 10), 1);
+      const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '50', 10), 1), 100);
+
+      // Build database query
+      const where: any = {};
+      if (src) where.source = src;
+      if (q) {
+        where.OR = [
+          { topic: { contains: q, mode: 'insensitive' } },
+          { tags: { hasSome: [q] } }
+        ];
+      }
+
+      // Get total count
+      const total = await prisma.trendRecord.count({ where });
+
+      // Get paginated results
+      const records = await prisma.trendRecord.findMany({
+        where,
+        orderBy: { observedAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      });
+
+      const items = records.map(toLegacyItem);
+
+      return NextResponse.json({ items, total, page, limit });
+    }
+
+    // Rich trends dashboard shape - get recent trends
+    const records = await prisma.trendRecord.findMany({
+      orderBy: { observedAt: 'desc' },
+      take: 50,
+    });
+
+    const trends = records.map(toRichTrendData);
     
-    // Calculate KPIs
     const kpis = {
       topMovers: trends.filter(t => t.signals.velocity > 80).length,
       breakouts: trends.filter(t => t.classification === 'breaking').length,
@@ -282,12 +180,10 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     console.error('Error fetching trends:', error);
-    
     return NextResponse.json({
       error: 'Failed to fetch trends data',
-      trends: [],
-      kpis: { topMovers: 0, breakouts: 0, converging: 0, highIntent: 0 },
-      lastUpdated: new Date().toISOString()
+      items: [],
+      total: 0
     }, { status: 500 });
   }
 }
