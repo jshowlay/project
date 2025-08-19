@@ -52,7 +52,7 @@ interface TrendData {
 
 interface TrendsResponse {
   trends: TrendData[];
-  kpis: {
+  kpis?: {
     topMovers: number;
     breakouts: number;
     converging: number;
@@ -96,6 +96,16 @@ export default function TrendsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+
+  // Calculate KPIs from trends data
+  const calculateKPIs = (trends: TrendData[]) => {
+    const topMovers = trends.filter(t => t.signals.velocity > 70).length;
+    const breakouts = trends.filter(t => t.signals.acceleration > 50).length;
+    const converging = trends.filter(t => t.signals.convergence > 60).length;
+    const highIntent = trends.filter(t => t.signals.searchIntent > 40).length;
+    
+    return { topMovers, breakouts, converging, highIntent };
+  };
 
   const fetchData = useCallback(async () => {
     try {
@@ -273,66 +283,73 @@ export default function TrendsPage() {
         </div>
 
         {/* KPIs */}
-        {data && (
+        {data && data.trends && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-gradient-to-br from-green-500/10 to-green-500/5 border border-green-500/20 rounded-lg p-4"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-green-400 text-sm font-medium">Top Movers</p>
-                  <p className="text-2xl font-bold">{data.kpis.topMovers}</p>
-                </div>
-                <TrendingUp className="w-8 h-8 text-green-400" />
-              </div>
-            </motion.div>
+            {(() => {
+              const kpis = data.kpis || calculateKPIs(data.trends);
+              return (
+                <>
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-gradient-to-br from-green-500/10 to-green-500/5 border border-green-500/20 rounded-lg p-4"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-green-400 text-sm font-medium">Top Movers</p>
+                        <p className="text-2xl font-bold">{kpis.topMovers}</p>
+                      </div>
+                      <TrendingUp className="w-8 h-8 text-green-400" />
+                    </div>
+                  </motion.div>
 
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-              className="bg-gradient-to-br from-red-500/10 to-red-500/5 border border-red-500/20 rounded-lg p-4"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-red-400 text-sm font-medium">Breakouts</p>
-                  <p className="text-2xl font-bold">{data.kpis.breakouts}</p>
-                </div>
-                <Zap className="w-8 h-8 text-red-400" />
-              </div>
-            </motion.div>
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.1 }}
+                    className="bg-gradient-to-br from-red-500/10 to-red-500/5 border border-red-500/20 rounded-lg p-4"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-red-400 text-sm font-medium">Breakouts</p>
+                        <p className="text-2xl font-bold">{kpis.breakouts}</p>
+                      </div>
+                      <Zap className="w-8 h-8 text-red-400" />
+                    </div>
+                  </motion.div>
 
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="bg-gradient-to-br from-blue-500/10 to-blue-500/5 border border-blue-500/20 rounded-lg p-4"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-blue-400 text-sm font-medium">Converging</p>
-                  <p className="text-2xl font-bold">{data.kpis.converging}</p>
-                </div>
-                <Target className="w-8 h-8 text-blue-400" />
-              </div>
-            </motion.div>
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.2 }}
+                    className="bg-gradient-to-br from-blue-500/10 to-blue-500/5 border border-blue-500/20 rounded-lg p-4"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-blue-400 text-sm font-medium">Converging</p>
+                        <p className="text-2xl font-bold">{kpis.converging}</p>
+                      </div>
+                      <Target className="w-8 h-8 text-blue-400" />
+                    </div>
+                  </motion.div>
 
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="bg-gradient-to-br from-yellow-500/10 to-yellow-500/5 border border-yellow-500/20 rounded-lg p-4"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-yellow-400 text-sm font-medium">High Intent</p>
-                  <p className="text-2xl font-bold">{data.kpis.highIntent}</p>
-                </div>
-                <Search className="w-8 h-8 text-yellow-400" />
-              </div>
-            </motion.div>
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3 }}
+                    className="bg-gradient-to-br from-yellow-500/10 to-yellow-500/5 border border-yellow-500/20 rounded-lg p-4"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-yellow-400 text-sm font-medium">High Intent</p>
+                        <p className="text-2xl font-bold">{kpis.highIntent}</p>
+                      </div>
+                      <Search className="w-8 h-8 text-yellow-400" />
+                    </div>
+                  </motion.div>
+                </>
+              );
+            })()}
           </div>
         )}
 
