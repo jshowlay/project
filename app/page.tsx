@@ -22,13 +22,23 @@ type Item = {
   id?: string;
   source: string;
   topic: string;
+  title: string;
   score: number;
+  trend_score: number;
+  velocity: number;
+  acceleration: number;
+  upvotes?: number;
+  downvotes?: number;
+  comments?: number;
+  views?: number;
   delta24h?: number | null;
   url?: string | null;
   region?: string | null;
   tags?: string[] | string | null;
   observedAt: string | Date;
-  imageUrl?: string | null;   // NEW
+  created_at: string | Date;
+  updated_at: string | Date;
+  imageUrl?: string | null;
 };
 
 function Chip({ label, onRemove }: { label: string; onRemove: () => void }) {
@@ -154,9 +164,34 @@ export default function Page() {
       if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
       const data = await res.json();
       console.log('Response data:', data);
-      const newItems = data.items ?? [];
-      setItems(opts?.append ? [...items, ...newItems] : newItems);
-      setTotal(Number(data.total ?? 0));
+      const newItems = data.data?.items ?? [];
+      
+      // Map the API response to the expected format
+      const mappedItems = newItems.map((item: any) => ({
+        id: item.external_id,
+        source: item.source,
+        topic: item.title || item.topic,
+        title: item.title,
+        score: item.score || 0,
+        trend_score: item.trend_score || 0,
+        velocity: item.velocity || 0,
+        acceleration: item.acceleration || 0,
+        upvotes: item.upvotes,
+        downvotes: item.downvotes,
+        comments: item.comments,
+        views: item.views,
+        delta24h: item.trend_score, // Use trend_score as delta24h
+        url: item.url,
+        region: item.region,
+        tags: item.tags,
+        observedAt: item.updated_at || item.created_at,
+        created_at: item.created_at,
+        updated_at: item.updated_at,
+        imageUrl: item.imageUrl
+      }));
+      
+      setItems(opts?.append ? [...items, ...mappedItems] : mappedItems);
+      setTotal(Number(data.data?.total ?? 0));
       setPage(nextPage);
 
       if (opts?.pushHistory) applyUrlState(false); else applyUrlState(true);
@@ -450,7 +485,7 @@ export default function Page() {
               const { term, geo } = deriveTermAndGeo(it.topic, it.region);
               return (
                 <div
-                  key={`${it.source}:${it.topic}:${String((it as any).observedAt ?? '')}`}
+                  key={`${it.source}:${it.id || it.topic}:${String((it as any).observedAt ?? '')}`}
                   className="rounded-2xl border border-[#1b1b1b] bg-[#0f0f0f] density-card"
                 >
                   {it.imageUrl && (
@@ -460,8 +495,18 @@ export default function Page() {
                     <span className="text-sm uppercase tracking-wide" style={{ color:'var(--accent)' }}>{it.source}</span>
                     <span className="text-sm">Score: {Math.round(it.score)}</span>
                   </div>
-                  <div className="mt-2 text-lg font-medium">{it.topic}</div>
+                  <div className="mt-2 text-lg font-medium">{it.title || it.topic}</div>
                   <div className="mt-1 text-sm opacity-80">Observed: {new Date(it.observedAt).toLocaleString()}</div>
+                  {it.trend_score != null && (
+                    <div className="mt-1 text-sm">
+                      <span className={`font-medium ${it.trend_score > 0 ? 'text-green-400' : it.trend_score < 0 ? 'text-red-400' : 'text-gray-400'}`}>
+                        Trend: {it.trend_score > 0 ? '+' : ''}{Math.round(it.trend_score)}%
+                      </span>
+                    </div>
+                  )}
+                  {it.velocity != null && it.velocity > 0 && (
+                    <div className="mt-1 text-sm text-blue-400">Velocity: {Math.round(it.velocity)}</div>
+                  )}
                   {it.delta24h!=null && <div className="mt-1 text-sm">Δ24h: {Number(it.delta24h).toFixed(2)}%</div>}
                   {it.source === 'google_trends' && (
                     <div className="mt-2">
