@@ -77,13 +77,28 @@ export async function runIngestion(): Promise<IngestionResult> {
     // Refresh materialized view if we have data
     if (totalItems > 0) {
       try {
-        logger.info('Refreshing materialized view');
-        await refreshMaterializedView();
-        logger.info('Materialized view refreshed successfully');
+        logger.info({ msg: 'Refreshing materialized view' });
+        
+        // Try CONCURRENTLY first, fallback to regular refresh
+        try {
+          await refreshMaterializedView();
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          if (errorMessage.toLowerCase().includes('concurrently')) {
+            logger.warn({ msg: 'CONCURRENTLY refresh failed, using regular refresh' });
+            // Fallback to regular refresh
+            const { query } = await import('./db');
+            await query('REFRESH MATERIALIZED VIEW mv_trends_hourly');
+          } else {
+            throw error;
+          }
+        }
+        
+        logger.info({ msg: 'Materialized view refreshed successfully' });
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         errors.push(`Materialized view refresh: ${errorMessage}`);
-        logger.error('Failed to refresh materialized view', { error: errorMessage });
+        logger.error({ msg: 'Failed to refresh materialized view', error: errorMessage });
       }
     }
 

@@ -259,7 +259,7 @@ export async function getTrendStats(): Promise<{
 
 // Refresh materialized view
 export async function refreshMaterializedView(): Promise<void> {
-  await query('SELECT refresh_trends_mv()');
+  await query('REFRESH MATERIALIZED VIEW CONCURRENTLY mv_trends_hourly');
 }
 
 // Close the pool (call this when shutting down the application)

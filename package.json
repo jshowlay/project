@@ -33,8 +33,10 @@
     "enrich:nyt:semantics": "tsx src/jobs/enrichNYTSemantic.ts",
     "db:init": "node scripts/db-init.cjs",
     "db:refresh-mv": "node scripts/db-refresh-mv.cjs",
+    "db:mv-unique": "node scripts/db-mv-unique.cjs",
     "ingest:run": "node scripts/ingest-run.cjs",
-    "cron:start": "node scripts/cron-ping.mjs"
+    "cron:start": "node scripts/cron-ping.mjs",
+    "test:cron-auth": "node scripts/test-cron-auth.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",

@@ -1,28 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { runIngestion, runBatchIngestion } from '../../../lib/ingest';
+import { runIngestion, runBatchIngestion, checkIngestionHealth } from '../../../lib/ingest';
 import { logger } from '../../../lib/logger';
 
+export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-// Authenticate request using secret
+// Authenticate request using secret (supports both query param and Bearer token)
 function authenticateRequest(request: NextRequest): boolean {
-  const secret = request.nextUrl.searchParams.get('secret');
-  const expectedSecret = process.env.INGEST_SECRET;
-  
+  const { searchParams } = request.nextUrl;
+  const querySecret = searchParams.get('secret');
+  const authHeader = request.headers.get('authorization');
+  const bearerToken = authHeader?.toLowerCase().startsWith('bearer ') ? authHeader.slice(7).trim() : undefined;
+  const expectedSecret = process.env.CRON_SECRET;
+
   if (!expectedSecret) {
-    logger.error('INGEST_SECRET not configured');
+    logger.error({ msg: 'CRON_SECRET not configured' });
     return false;
   }
-  
-  if (!secret || secret !== expectedSecret) {
-    logger.warn('Invalid ingest secret provided', { 
-      provided: secret ? '***' : 'none',
+
+  if (!querySecret && !bearerToken) {
+    logger.warn({
+      msg: 'No authentication provided',
       ip: request.ip || request.headers.get('x-forwarded-for') || 'unknown'
     });
     return false;
   }
-  
-  return true;
+
+  const isValid = querySecret === expectedSecret || bearerToken === expectedSecret;
+
+  if (!isValid) {
+    logger.warn({
+      msg: 'Invalid authentication provided',
+      providedQuery: querySecret ? '***' : 'none',
+      providedBearer: bearerToken ? '***' : 'none',
+      ip: request.ip || request.headers.get('x-forwarded-for') || 'unknown'
+    });
+  }
+
+  return isValid;
 }
 
 export async function POST(request: NextRequest) {
@@ -48,7 +63,11 @@ export async function POST(request: NextRequest) {
 
     const { batch = false, batchSize = 100 } = options as { batch?: boolean; batchSize?: number };
 
-    logger.info('Starting ingestion via API', { batch, batchSize });
+    logger.info({
+      msg: 'Starting ingestion via API',
+      batch,
+      batchSize,
+    });
 
     // Run ingestion
     const result = batch 
@@ -58,7 +77,8 @@ export async function POST(request: NextRequest) {
     const duration = Date.now() - startTime;
 
     // Log the API call
-    logger.info('Ingestion API call completed', {
+    logger.info({
+      msg: 'Ingestion API call completed',
       success: result.success,
       totalItems: result.totalItems,
       sourcesProcessed: result.sourcesProcessed,
@@ -71,27 +91,19 @@ export async function POST(request: NextRequest) {
     // Return response
     if (result.success) {
       return NextResponse.json({
-        success: true,
-        message: 'Data ingestion completed successfully',
-        data: {
-          totalItems: result.totalItems,
-          sourcesProcessed: result.sourcesProcessed,
-          duration: result.duration,
-          errors: result.errors,
-        },
-        timestamp: new Date().toISOString(),
+        ok: true,
+        inserted: result.totalItems,
+        sources: result.sourcesProcessed,
+        duration: result.duration,
+        errors: result.errors,
       });
     } else {
       return NextResponse.json({
-        success: false,
-        message: 'Data ingestion completed with errors',
-        data: {
-          totalItems: result.totalItems,
-          sourcesProcessed: result.sourcesProcessed,
-          duration: result.duration,
-          errors: result.errors,
-        },
-        timestamp: new Date().toISOString(),
+        ok: false,
+        inserted: result.totalItems,
+        sources: result.sourcesProcessed,
+        duration: result.duration,
+        errors: result.errors,
       }, { status: 207 }); // 207 Multi-Status for partial success
     }
 
@@ -99,13 +111,15 @@ export async function POST(request: NextRequest) {
     const duration = Date.now() - startTime;
     const errorMessage = error instanceof Error ? error.message : String(error);
     
-    logger.error('Ingestion API call failed', { error: errorMessage, duration });
+    logger.error({
+      msg: 'Ingestion API call failed',
+      error: errorMessage,
+      duration,
+    });
     
     return NextResponse.json({
-      success: false,
-      error: 'Internal server error',
-      message: errorMessage,
-      timestamp: new Date().toISOString(),
+      ok: false,
+      error: errorMessage,
     }, { status: 500 });
   }
 }
@@ -121,7 +135,6 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const { checkIngestionHealth } = await import('../../../lib/ingest');
     const health = await checkIngestionHealth();
 
     return NextResponse.json({
@@ -133,9 +146,12 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    
-    logger.error('Health check failed', { error: errorMessage });
-    
+
+    logger.error({
+      msg: 'Health check failed',
+      error: errorMessage,
+    });
+
     return NextResponse.json({
       status: 'unhealthy',
       error: errorMessage,
