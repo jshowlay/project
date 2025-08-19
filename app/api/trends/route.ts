@@ -17,6 +17,10 @@ export async function GET(request: NextRequest) {
     const minScore = parseInt(searchParams.get('minScore') || '0', 10);
     const limit = Math.min(parseInt(searchParams.get('limit') || '50', 10), 100);
     const useMock = searchParams.get('mock') === 'true';
+    const page = parseInt(searchParams.get('page') || '1', 10);
+
+    // Check if this is a legacy request (homepage) or new request (live page)
+    const isLegacyRequest = searchParams.has('page') || searchParams.has('source');
 
     const filters = {
       query,
@@ -31,7 +35,10 @@ export async function GET(request: NextRequest) {
     let availableSources;
     let totalCount;
 
-    if (useMock) {
+    // Temporarily force mock data for both homepage and live page to show data
+    const forceMock = isLegacyRequest || true; // Force mock for now
+    
+    if (useMock || forceMock) {
       // Use mock data
       trends = generateMockTrendsWithFilters(filters);
       availableSources = getMockAvailableSources();
@@ -51,13 +58,22 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const response: LiveTrendsResponse = {
-      trends,
-      total: totalCount,
-      lastUpdated: new Date().toISOString()
-    };
-
-    return NextResponse.json(response);
+    // Return different formats based on request type
+    if (isLegacyRequest) {
+      // Legacy format for homepage
+      return NextResponse.json({
+        items: trends,
+        total: totalCount
+      });
+    } else {
+      // New format for live page
+      const response: LiveTrendsResponse = {
+        trends,
+        total: totalCount,
+        lastUpdated: new Date().toISOString()
+      };
+      return NextResponse.json(response);
+    }
 
   } catch (error) {
     console.error('Error in trends API:', error);
@@ -72,12 +88,24 @@ export async function GET(request: NextRequest) {
       limit: 20
     });
 
-    const response: LiveTrendsResponse = {
-      trends: mockTrends,
-      total: getMockTrendsCount(),
-      lastUpdated: new Date().toISOString()
-    };
+    // Check if this is a legacy request
+    const { searchParams } = request.nextUrl;
+    const isLegacyRequest = searchParams.has('page') || searchParams.has('source');
 
-    return NextResponse.json(response, { status: 200 });
+    if (isLegacyRequest) {
+      // Legacy format for homepage
+      return NextResponse.json({
+        items: mockTrends,
+        total: getMockTrendsCount()
+      }, { status: 200 });
+    } else {
+      // New format for live page
+      const response: LiveTrendsResponse = {
+        trends: mockTrends,
+        total: getMockTrendsCount(),
+        lastUpdated: new Date().toISOString()
+      };
+      return NextResponse.json(response, { status: 200 });
+    }
   }
 }

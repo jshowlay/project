@@ -81,9 +81,12 @@ export async function getLiveTrends(filters: {
     `;
     params.push(limit);
 
-    const results = await sql.unsafe(queryText, params) as DatabaseTrend[];
+    const results = await sql.unsafe(queryText, params);
     
-    return results.map(row => ({
+    // Handle different result formats
+    const trendsArray = Array.isArray(results) ? results : results.rows || [];
+    
+    return trendsArray.map(row => ({
       id: row.id,
       title: row.title,
       source: row.source,
@@ -128,8 +131,9 @@ export async function getAvailableSources(): Promise<string[]> {
       FROM v_trends_live 
       WHERE last_seen_at >= NOW() - INTERVAL '24 hours'
       ORDER BY source
-    ` as {source: string}[];
-    return results.map(row => row.source);
+    `;
+    const sourcesArray = Array.isArray(results) ? results : results.rows || [];
+    return sourcesArray.map(row => row.source);
   } catch (error) {
     console.error('Failed to get available sources:', error);
     return [];
@@ -142,8 +146,9 @@ export async function getTrendsCount(): Promise<number> {
       SELECT COUNT(*) as count 
       FROM v_trends_live 
       WHERE last_seen_at >= NOW() - INTERVAL '1 hour'
-    ` as {count: number}[];
-    return result[0]?.count || 0;
+    `;
+    const countArray = Array.isArray(result) ? result : result.rows || [];
+    return countArray[0]?.count || 0;
   } catch (error) {
     console.error('Failed to get trends count:', error);
     return 0;
