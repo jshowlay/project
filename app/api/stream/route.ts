@@ -47,7 +47,10 @@ export async function GET(request: NextRequest) {
         try {
           let trends;
           
-          if (useMock) {
+          // Temporarily force mock data to show data
+          const forceMock = true; // Force mock for now
+          
+          if (useMock || forceMock) {
             trends = generateMockTrendsWithFilters(filters);
           } else {
             try {
