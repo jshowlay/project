@@ -1,4 +1,4 @@
-import { TrendData, TrendSignals } from '@/types/trend';
+import { TrendData, TrendSignals } from '../types/trend';
 
 const MOCK_SOURCES = ['twitter', 'reddit', 'instagram', 'youtube', 'tiktok', 'newsapi'];
 const MOCK_REGIONS = ['US', 'UK', 'CA', 'AU', 'DE', 'FR', 'JP'];
@@ -90,7 +90,7 @@ export function generateMockTrendsWithFilters(filters: {
   if (query) {
     trends = trends.filter(trend => 
       trend.title.toLowerCase().includes(query.toLowerCase()) ||
-      trend.tags.some(tag => tag.toLowerCase().includes(query.toLowerCase()))
+      trend.tags?.some((tag: string) => tag.toLowerCase().includes(query.toLowerCase())) || false
     );
   }
 

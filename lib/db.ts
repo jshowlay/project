@@ -1,5 +1,5 @@
 import { neon } from '@neondatabase/serverless';
-import { TrendData } from '@/types/trend';
+import { TrendData } from '../types/trend';
 
 const sql = neon(process.env.DATABASE_URL!);
 
@@ -81,7 +81,7 @@ export async function getLiveTrends(filters: {
     `;
     params.push(limit);
 
-    const results = await sql<DatabaseTrend[]>(queryText, params);
+    const results = await sql.unsafe(queryText, params) as DatabaseTrend[];
     
     return results.map(row => ({
       id: row.id,
@@ -123,12 +123,12 @@ export async function refreshMaterializedView(): Promise<void> {
 
 export async function getAvailableSources(): Promise<string[]> {
   try {
-    const results = await sql<{source: string}[]>`
+    const results = await sql`
       SELECT DISTINCT source 
       FROM v_trends_live 
       WHERE last_seen_at >= NOW() - INTERVAL '24 hours'
       ORDER BY source
-    `;
+    ` as {source: string}[];
     return results.map(row => row.source);
   } catch (error) {
     console.error('Failed to get available sources:', error);
@@ -138,11 +138,11 @@ export async function getAvailableSources(): Promise<string[]> {
 
 export async function getTrendsCount(): Promise<number> {
   try {
-    const result = await sql<{count: number}[]>`
+    const result = await sql`
       SELECT COUNT(*) as count 
       FROM v_trends_live 
       WHERE last_seen_at >= NOW() - INTERVAL '1 hour'
-    `;
+    ` as {count: number}[];
     return result[0]?.count || 0;
   } catch (error) {
     console.error('Failed to get trends count:', error);

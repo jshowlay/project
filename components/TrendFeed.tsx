@@ -63,9 +63,30 @@ export default function TrendFeed() {
       {loading ? <div className="opacity-60">Loading…</div> : null}
       
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {rows.map((r: any) => (
-          <TrendCard key={`${r.source}-${r.entity_id}-${r.metric}`} row={r} />
-        ))}
+        {rows.map((r: any) => {
+          // Convert old row format to new trend format
+          const trend = {
+            id: `${r.source}-${r.entity_id}-${r.metric}`,
+            title: r.entity_name || r.entity_id,
+            source: r.source,
+            region: r.region || 'US',
+            score: r.score || 0,
+            velocity: r.now_value || 0,
+            acceleration: r.now_value && r.baseline_value ? r.now_value - r.baseline_value : 0,
+            lastSeenAt: new Date().toISOString(),
+            signals: {
+              velocity: r.now_value || 0,
+              acceleration: r.now_value && r.baseline_value ? r.now_value - r.baseline_value : 0,
+              convergence: 0,
+              searchIntent: 0,
+              creatorIndex: 0,
+              engagementEfficiency: 0,
+              geoSpread: 0
+            },
+            tags: []
+          };
+          return <TrendCard key={trend.id} trend={trend} />;
+        })}
       </div>
       
       {!loading && rows.length === 0 ? (
