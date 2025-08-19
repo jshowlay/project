@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { getLiveTrends } from '../../../lib/db';
+import { getTrendingItems } from '../../../lib/db';
 import { generateMockTrendsWithFilters } from '../../../lib/mock';
 import { StreamMessage } from '../../../types/trend';
 
@@ -54,7 +54,12 @@ export async function GET(request: NextRequest) {
             trends = generateMockTrendsWithFilters(filters);
           } else {
             try {
-              trends = await getLiveTrends(filters);
+              trends = await getTrendingItems({
+                source: sources.length > 0 ? sources[0] : undefined,
+                limit: filters.limit,
+                minTrendScore: filters.minScore,
+                minVelocity: 0
+              });
             } catch (error) {
               console.error('Database query failed, using mock data:', error);
               trends = generateMockTrendsWithFilters(filters);
