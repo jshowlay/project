@@ -65,6 +65,7 @@ export default function LivePage() {
 
   // Initialize SSE connection
   const connectSSE = useCallback(() => {
+    console.log('Connecting to SSE...');
     if (eventSourceRef.current) {
       eventSourceRef.current.close();
     }
@@ -72,7 +73,8 @@ export default function LivePage() {
     const params = new URLSearchParams({
       sinceMins: filters.sinceMins.toString(),
       minScore: filters.minScore.toString(),
-      limit: '50'
+      limit: '50',
+      mock: 'true' // Force mock data for now
     });
 
     if (filters.query) params.append('q', filters.query);
@@ -85,14 +87,17 @@ export default function LivePage() {
     setState(prev => ({ ...prev, connectionStatus: 'connecting' }));
 
     eventSource.onopen = () => {
+      console.log('SSE connection opened');
       setState(prev => ({ ...prev, connectionStatus: 'connected' }));
     };
 
     eventSource.onmessage = (event) => {
       try {
+        console.log('SSE message received:', event.data);
         const message = JSON.parse(event.data);
         
         if (message.type === 'trends' && message.data) {
+          console.log('Trends data received:', message.data.length, 'items');
           setState(prev => ({
             ...prev,
             trends: message.data,
@@ -101,9 +106,10 @@ export default function LivePage() {
             error: null
           }));
         } else if (message.type === 'heartbeat') {
-          // Update last update time for heartbeat
+          console.log('Heartbeat received');
           setState(prev => ({ ...prev, lastUpdate: message.timestamp }));
         } else if (message.type === 'error') {
+          console.error('SSE error:', message.message);
           setState(prev => ({
             ...prev,
             error: message.message || 'Stream error',
@@ -115,7 +121,8 @@ export default function LivePage() {
       }
     };
 
-    eventSource.onerror = () => {
+    eventSource.onerror = (error) => {
+      console.error('SSE connection error:', error);
       setState(prev => ({ ...prev, connectionStatus: 'disconnected' }));
       
       // Attempt to reconnect after 5 seconds
@@ -123,6 +130,7 @@ export default function LivePage() {
         clearTimeout(reconnectTimeoutRef.current);
       }
       reconnectTimeoutRef.current = setTimeout(() => {
+        console.log('Attempting to reconnect...');
         connectSSE();
       }, 5000);
     };
@@ -134,10 +142,12 @@ export default function LivePage() {
   useEffect(() => {
     const loadInitialData = async () => {
       try {
+        console.log('Loading initial data...');
         const params = new URLSearchParams({
           sinceMins: filters.sinceMins.toString(),
           minScore: filters.minScore.toString(),
-          limit: '50'
+          limit: '50',
+          mock: 'true' // Force mock data for now
         });
 
         if (filters.query) params.append('q', filters.query);
@@ -146,6 +156,7 @@ export default function LivePage() {
 
         const response = await fetch(`/api/trends?${params.toString()}`);
         const data = await response.json();
+        console.log('Initial data loaded:', data.trends?.length || 0, 'items');
 
         setState(prev => ({
           ...prev,
@@ -213,6 +224,14 @@ export default function LivePage() {
       default: return 'Unknown';
     }
   };
+
+  console.log('Render state:', { 
+    trendsCount: state.trends.length, 
+    filteredCount: filteredTrends.length, 
+    loading: state.loading, 
+    error: state.error,
+    connectionStatus: state.connectionStatus 
+  });
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
