@@ -1,7 +1,7 @@
 'use client';
 
 import { memo } from 'react';
-import { TrendData } from '@/types/trend';
+import { TrendData } from '../types/trend';
 import Image from 'next/image';
 
 interface TrendCardProps {
