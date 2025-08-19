@@ -1,0 +1,41 @@
+TrenderAI Complete Backup
+========================
+
+Backup Date: Tue Aug 19 08:16:17 PDT 2025
+Backup Timestamp: 20250819_081441
+Backup Type: Complete Application Backup
+
+Contents:
+- Source code (excluding node_modules, .next, .git, etc.)
+- Configuration files
+- Prisma schema
+- Package dependencies
+- All application files
+
+Backup Size:  11M
+
+System Info:
+- OS: Darwin
+- Architecture: x86_64
+- Node Version: v22.18.0
+- PNPM Version: 10.14.0
+
+Git Info:
+- Branch: Not available
+- Commit: 148cb91231c856894e4c10aac8c7de75a3ed3708
+- Status: Modified files: 3
+
+Database Info:
+- DATABASE_URL: Availablepostgresql://neondb_owner:npg_NyT28faScxGm@ep-icy-unit-afxatgg6-pooler.c-2.us-west-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+
+Backup Files:
+- trenderai-backup-20250819_081441.tar.gz (Code backup)
+- trenderai-backup-20250819_081441-info.txt (This file)
+
+To restore from this backup:
+1. Extract: tar -xzf trenderai-backup-20250819_081441.tar.gz
+2. Install dependencies: pnpm install
+3. Set up environment variables
+4. Run migrations: pnpm prisma migrate deploy
+5. Start the application: pnpm dev
+
