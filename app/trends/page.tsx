@@ -44,7 +44,7 @@ interface TrendData {
   score: number;
   trendScore: number;
   signals: TrendSignal;
-  sparkline: number[];
+  sparkline?: number[];
   classification: 'emerging' | 'breaking' | 'converging' | 'spiky';
   saved: boolean;
   alerted: boolean;
@@ -105,6 +105,26 @@ export default function TrendsPage() {
     const highIntent = trends.filter(t => t.signals.searchIntent > 40).length;
     
     return { topMovers, breakouts, converging, highIntent };
+  };
+
+  // Generate mock sparkline data
+  const generateSparkline = (trend: TrendData): number[] => {
+    if (trend.sparkline && trend.sparkline.length > 0) {
+      return trend.sparkline;
+    }
+    
+    // Generate mock sparkline based on trend signals
+    const baseValue = trend.score / 10;
+    const volatility = trend.signals.acceleration / 100;
+    const data = [];
+    
+    for (let i = 0; i < 60; i++) {
+      const noise = (Math.random() - 0.5) * volatility;
+      const trend = Math.sin(i / 10) * 0.1;
+      data.push(Math.max(0, baseValue + noise + trend));
+    }
+    
+    return data;
   };
 
   const fetchData = useCallback(async () => {
@@ -478,7 +498,7 @@ export default function TrendsPage() {
                   {/* Sparkline */}
                   <div className="h-16 bg-gray-800 rounded-lg p-2 mb-3">
                     <ResponsiveContainer width="100%" height="100%">
-                      <ScatterChart data={trend.sparkline.map((value, index) => ({ x: index, y: value }))}>
+                      <ScatterChart data={generateSparkline(trend).map((value, index) => ({ x: index, y: value }))}>
                         <Scatter dataKey="y" fill="#e5c35a" />
                       </ScatterChart>
                     </ResponsiveContainer>
