@@ -17,7 +17,8 @@ export async function GET(request: NextRequest) {
     const minVelocity = parseInt(searchParams.get('minVelocity') || '0', 10);
     const includeStats = searchParams.get('stats') === 'true';
     
-    logger.info('Trends API request', {
+    logger.info({
+      msg: 'Trends API request',
       source,
       limit,
       minTrendScore,
@@ -38,15 +39,24 @@ export async function GET(request: NextRequest) {
     let availableSources = null;
     
     if (includeStats) {
-      [stats, availableSources] = await Promise.all([
-        getTrendStats(),
-        getAvailableSources(),
-      ]);
+      try {
+        [stats, availableSources] = await Promise.all([
+          getTrendStats(),
+          getAvailableSources(),
+        ]);
+      } catch (error) {
+        logger.warn({
+          msg: 'Failed to get stats or sources',
+          error: error instanceof Error ? error.message : String(error),
+        });
+        // Continue without stats
+      }
     }
 
     const duration = Date.now() - startTime;
     
-    logger.info('Trends API response', {
+    logger.info({
+      msg: 'Trends API response',
       itemCount: items.length,
       duration,
       includeStats: !!stats,
@@ -75,13 +85,31 @@ export async function GET(request: NextRequest) {
     const duration = Date.now() - startTime;
     const errorMessage = error instanceof Error ? error.message : String(error);
     
-    logger.error('Trends API failed', { error: errorMessage, duration });
+    logger.error({
+      msg: 'Trends API failed',
+      error: errorMessage,
+      duration,
+    });
     
+    // Return a more graceful error response
     return NextResponse.json({
       success: false,
       error: 'Failed to fetch trending data',
-      message: errorMessage,
+      message: 'Database connection or query failed. Please check your configuration.',
+      data: {
+        items: [],
+        total: 0,
+        stats: null,
+        availableSources: [],
+      },
+      meta: {
+        source: 'all',
+        limit: 50,
+        minTrendScore: 0,
+        minVelocity: 0,
+        duration,
+      },
       timestamp: new Date().toISOString(),
-    }, { status: 500 });
+    }, { status: 503 }); // Service Unavailable
   }
 }

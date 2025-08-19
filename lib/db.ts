@@ -11,19 +11,28 @@ const pool = new Pool({
 
 // Pool event listeners for monitoring
 pool.on('connect', (client: PoolClient) => {
-  logger.info('New database connection established');
+  logger.info({
+    msg: 'New database connection established',
+  });
 });
 
 pool.on('error', (err: Error, client: PoolClient) => {
-  logger.error('Unexpected error on idle client', { error: err.message });
+  logger.error({
+    msg: 'Unexpected error on idle client',
+    error: err.message,
+  });
 });
 
 pool.on('acquire', (client: PoolClient) => {
-  logger.debug('Client acquired from pool');
+  logger.debug({
+    msg: 'Client acquired from pool',
+  });
 });
 
 pool.on('release', (client: PoolClient) => {
-  logger.debug('Client released back to pool');
+  logger.debug({
+    msg: 'Client released back to pool',
+  });
 });
 
 // Query helper with performance monitoring
@@ -36,7 +45,8 @@ export async function query<T = any>(
   const queryId = Math.random().toString(36).substring(7);
   
   try {
-    logger.debug('Executing database query', { 
+    logger.debug({
+      msg: 'Executing database query',
       queryId, 
       text: text.substring(0, 100) + (text.length > 100 ? '...' : ''),
       params 
@@ -45,7 +55,8 @@ export async function query<T = any>(
     const result = client ? await client.query(text, params) : await pool.query(text, params);
     
     const duration = Date.now() - startTime;
-    logger.debug('Database query completed', { 
+    logger.debug({
+      msg: 'Database query completed',
       queryId, 
       duration, 
       rowCount: result.rowCount 
@@ -54,7 +65,8 @@ export async function query<T = any>(
     return result;
   } catch (error) {
     const duration = Date.now() - startTime;
-    logger.error('Database query failed', { 
+    logger.error({
+      msg: 'Database query failed',
       queryId, 
       duration, 
       error: error instanceof Error ? error.message : String(error),
@@ -180,14 +192,30 @@ export async function getTrendingItems(
   text += ' ORDER BY trend_score DESC, velocity DESC LIMIT $' + (params.length + 1);
   params.push(limit);
   
-  const result = await query(text, params);
-  return result.rows;
+  try {
+    const result = await query(text, params);
+    return result.rows;
+  } catch (error) {
+    logger.warn({
+      msg: 'Failed to get trending items, returning empty array',
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return [];
+  }
 }
 
 // Get available sources
 export async function getAvailableSources(): Promise<string[]> {
-  const result = await query('SELECT DISTINCT source FROM trend_items ORDER BY source');
-  return result.rows.map(row => row.source);
+  try {
+    const result = await query('SELECT DISTINCT source FROM trend_items ORDER BY source');
+    return result.rows.map(row => row.source);
+  } catch (error) {
+    logger.warn({
+      msg: 'Failed to get available sources, returning empty array',
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return [];
+  }
 }
 
 // Get trend statistics
@@ -197,23 +225,36 @@ export async function getTrendStats(): Promise<{
   lastUpdated: Date;
   topTrending: any[];
 }> {
-  const [itemsResult, sourcesResult, topResult] = await Promise.all([
-    query('SELECT COUNT(*) as count FROM trend_items'),
-    query('SELECT COUNT(DISTINCT source) as count FROM trend_items'),
-    query(`
-      SELECT source, external_id, title, trend_score, velocity 
-      FROM mv_trends_hourly 
-      ORDER BY trend_score DESC 
-      LIMIT 5
-    `)
-  ]);
-  
-  return {
-    totalItems: parseInt(itemsResult.rows[0].count),
-    totalSources: parseInt(sourcesResult.rows[0].count),
-    lastUpdated: new Date(),
-    topTrending: topResult.rows
-  };
+  try {
+    const [itemsResult, sourcesResult, topResult] = await Promise.all([
+      query('SELECT COUNT(*) as count FROM trend_items'),
+      query('SELECT COUNT(DISTINCT source) as count FROM trend_items'),
+      query(`
+        SELECT source, external_id, title, trend_score, velocity 
+        FROM mv_trends_hourly 
+        ORDER BY trend_score DESC 
+        LIMIT 5
+      `)
+    ]);
+    
+    return {
+      totalItems: parseInt(itemsResult.rows[0].count),
+      totalSources: parseInt(sourcesResult.rows[0].count),
+      lastUpdated: new Date(),
+      topTrending: topResult.rows
+    };
+  } catch (error) {
+    logger.warn({
+      msg: 'Failed to get trend stats, returning default values',
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return {
+      totalItems: 0,
+      totalSources: 0,
+      lastUpdated: new Date(),
+      topTrending: []
+    };
+  }
 }
 
 // Refresh materialized view
