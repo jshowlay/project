@@ -1,156 +1,230 @@
-import { neon } from '@neondatabase/serverless';
-import { TrendData } from '../types/trend';
+import { Pool, PoolClient, QueryResult } from 'pg';
+import { logger } from './logger';
 
-const sql = neon(process.env.DATABASE_URL!);
+// Database connection pool
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  max: parseInt(process.env.DB_POOL_SIZE || '10'),
+  idleTimeoutMillis: parseInt(process.env.DB_IDLE_TIMEOUT || '30000'),
+  connectionTimeoutMillis: parseInt(process.env.DB_CONNECTION_TIMEOUT || '10000'),
+});
 
-export interface DatabaseTrend {
-  id: string;
-  title: string;
-  source: string;
-  region: string;
-  score: number;
-  velocity: number;
-  accel: number;
-  image_url?: string;
-  url?: string;
-  last_seen_at: string;
-  signals: any;
-  tags?: string[];
-}
+// Pool event listeners for monitoring
+pool.on('connect', (client: PoolClient) => {
+  logger.info('New database connection established');
+});
 
-export async function getLiveTrends(filters: {
-  query?: string;
-  sources?: string[];
-  region?: string;
-  sinceMins?: number;
-  minScore?: number;
-  limit?: number;
-}): Promise<TrendData[]> {
+pool.on('error', (err: Error, client: PoolClient) => {
+  logger.error('Unexpected error on idle client', { error: err.message });
+});
+
+pool.on('acquire', (client: PoolClient) => {
+  logger.debug('Client acquired from pool');
+});
+
+pool.on('release', (client: PoolClient) => {
+  logger.debug('Client released back to pool');
+});
+
+// Query helper with performance monitoring
+export async function query<T = any>(
+  text: string, 
+  params?: any[], 
+  client?: PoolClient
+): Promise<QueryResult<T>> {
+  const startTime = Date.now();
+  const queryId = Math.random().toString(36).substring(7);
+  
   try {
-    const {
-      query = '',
-      sources = [],
-      region = '',
-      sinceMins = 60,
-      minScore = 0,
-      limit = 50
-    } = filters;
-
-    let whereConditions = [];
-    let params: any[] = [];
-    let paramIndex = 1;
-
-    // Time filter
-    whereConditions.push(`last_seen_at >= NOW() - INTERVAL '${sinceMins} minutes'`);
+    logger.debug('Executing database query', { 
+      queryId, 
+      text: text.substring(0, 100) + (text.length > 100 ? '...' : ''),
+      params 
+    });
     
-    // Score filter
-    if (minScore > 0) {
-      whereConditions.push(`score >= $${paramIndex++}`);
-      params.push(minScore);
-    }
-
-    // Region filter
-    if (region) {
-      whereConditions.push(`region ILIKE $${paramIndex++}`);
-      params.push(`%${region}%`);
-    }
-
-    // Sources filter
-    if (sources.length > 0) {
-      whereConditions.push(`source = ANY($${paramIndex++})`);
-      params.push(sources);
-    }
-
-    // Query filter
-    if (query) {
-      whereConditions.push(`(title ILIKE $${paramIndex++} OR tags::text ILIKE $${paramIndex})`);
-      params.push(`%${query}%`);
-      params.push(`%${query}%`);
-    }
-
-    const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
-
-    const queryText = `
-      SELECT 
-        id, title, source, region, score, velocity, accel,
-        image_url, url, last_seen_at, signals, tags
-      FROM v_trends_live
-      ${whereClause}
-      ORDER BY score DESC, last_seen_at DESC
-      LIMIT $${paramIndex}
-    `;
-    params.push(limit);
-
-    const results = await sql.unsafe(queryText, params);
+    const result = client ? await client.query(text, params) : await pool.query(text, params);
     
-    // Handle different result formats
-    const trendsArray = Array.isArray(results) ? results : results.rows || [];
+    const duration = Date.now() - startTime;
+    logger.debug('Database query completed', { 
+      queryId, 
+      duration, 
+      rowCount: result.rowCount 
+    });
     
-    return trendsArray.map(row => ({
-      id: row.id,
-      title: row.title,
-      source: row.source,
-      region: row.region,
-      score: row.score,
-      velocity: row.velocity,
-      acceleration: row.accel,
-      imageUrl: row.image_url,
-      url: row.url,
-      lastSeenAt: row.last_seen_at,
-      signals: row.signals || {
-        velocity: row.velocity,
-        acceleration: row.accel,
-        convergence: 0,
-        searchIntent: 0,
-        creatorIndex: 0,
-        engagementEfficiency: 0,
-        geoSpread: 0
-      },
-      tags: row.tags || []
-    }));
-
+    return result;
   } catch (error) {
-    console.error('Database query failed:', error);
-    throw new Error('Failed to fetch live trends from database');
+    const duration = Date.now() - startTime;
+    logger.error('Database query failed', { 
+      queryId, 
+      duration, 
+      error: error instanceof Error ? error.message : String(error),
+      text: text.substring(0, 100) + (text.length > 100 ? '...' : ''),
+      params 
+    });
+    throw error;
   }
 }
 
-export async function refreshMaterializedView(): Promise<void> {
+// Get a client from the pool for transactions
+export async function getClient(): Promise<PoolClient> {
+  return await pool.connect();
+}
+
+// Execute a transaction
+export async function transaction<T>(
+  callback: (client: PoolClient) => Promise<T>
+): Promise<T> {
+  const client = await getClient();
+  
   try {
-    await sql`REFRESH MATERIALIZED VIEW CONCURRENTLY mv_trends_hourly`;
+    await client.query('BEGIN');
+    const result = await callback(client);
+    await client.query('COMMIT');
+    return result;
   } catch (error) {
-    console.error('Failed to refresh materialized view:', error);
-    throw new Error('Failed to refresh materialized view');
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
   }
 }
 
+// Upsert trend item with conflict resolution
+export async function upsertTrendItem(
+  item: {
+    source: string;
+    external_id: string;
+    title: string;
+    topic?: string;
+    url?: string;
+    score?: number;
+    upvotes?: number;
+    downvotes?: number;
+    comments?: number;
+    views?: number;
+  },
+  client?: PoolClient
+): Promise<void> {
+  const text = `
+    INSERT INTO trend_items (
+      source, external_id, title, topic, url, score, upvotes, downvotes, comments, views, updated_at
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
+    ON CONFLICT (source, external_id) 
+    DO UPDATE SET 
+      title = EXCLUDED.title,
+      topic = EXCLUDED.topic,
+      url = EXCLUDED.url,
+      score = EXCLUDED.score,
+      upvotes = EXCLUDED.upvotes,
+      downvotes = EXCLUDED.downvotes,
+      comments = EXCLUDED.comments,
+      views = EXCLUDED.views,
+      updated_at = NOW()
+  `;
+  
+  const params = [
+    item.source,
+    item.external_id,
+    item.title,
+    item.topic,
+    item.url,
+    item.score || 0,
+    item.upvotes || 0,
+    item.downvotes || 0,
+    item.comments || 0,
+    item.views || 0
+  ];
+  
+  await query(text, params, client);
+}
+
+// Get trending items from materialized view
+export async function getTrendingItems(
+  options: {
+    source?: string;
+    limit?: number;
+    minTrendScore?: number;
+    minVelocity?: number;
+  } = {}
+): Promise<any[]> {
+  const { source, limit = 50, minTrendScore = 0, minVelocity = 0 } = options;
+  
+  let text = `
+    SELECT 
+      source,
+      external_id,
+      title,
+      topic,
+      url,
+      score,
+      upvotes,
+      downvotes,
+      comments,
+      views,
+      trend_score,
+      velocity,
+      acceleration,
+      created_at,
+      updated_at
+    FROM mv_trends_hourly
+    WHERE trend_score >= $1 AND velocity >= $2
+  `;
+  
+  const params: any[] = [minTrendScore, minVelocity];
+  
+  if (source) {
+    text += ' AND source = $3';
+    params.push(source);
+  }
+  
+  text += ' ORDER BY trend_score DESC, velocity DESC LIMIT $' + (params.length + 1);
+  params.push(limit);
+  
+  const result = await query(text, params);
+  return result.rows;
+}
+
+// Get available sources
 export async function getAvailableSources(): Promise<string[]> {
-  try {
-    const results = await sql`
-      SELECT DISTINCT source 
-      FROM v_trends_live 
-      WHERE last_seen_at >= NOW() - INTERVAL '24 hours'
-      ORDER BY source
-    `;
-    const sourcesArray = Array.isArray(results) ? results : results.rows || [];
-    return sourcesArray.map(row => row.source);
-  } catch (error) {
-    console.error('Failed to get available sources:', error);
-    return [];
-  }
+  const result = await query('SELECT DISTINCT source FROM trend_items ORDER BY source');
+  return result.rows.map(row => row.source);
 }
 
-export async function getTrendsCount(): Promise<number> {
-  try {
-    const result = await sql`
-      SELECT COUNT(*) as count 
-      FROM v_trends_live 
-      WHERE last_seen_at >= NOW() - INTERVAL '1 hour'
-    `;
-    const countArray = Array.isArray(result) ? result : result.rows || [];
-    return countArray[0]?.count || 0;
-  } catch (error) {
-    console.error('Failed to get trends count:', error);
-    return 0;
-  }
+// Get trend statistics
+export async function getTrendStats(): Promise<{
+  totalItems: number;
+  totalSources: number;
+  lastUpdated: Date;
+  topTrending: any[];
+}> {
+  const [itemsResult, sourcesResult, topResult] = await Promise.all([
+    query('SELECT COUNT(*) as count FROM trend_items'),
+    query('SELECT COUNT(DISTINCT source) as count FROM trend_items'),
+    query(`
+      SELECT source, external_id, title, trend_score, velocity 
+      FROM mv_trends_hourly 
+      ORDER BY trend_score DESC 
+      LIMIT 5
+    `)
+  ]);
+  
+  return {
+    totalItems: parseInt(itemsResult.rows[0].count),
+    totalSources: parseInt(sourcesResult.rows[0].count),
+    lastUpdated: new Date(),
+    topTrending: topResult.rows
+  };
 }
+
+// Refresh materialized view
+export async function refreshMaterializedView(): Promise<void> {
+  await query('SELECT refresh_trends_mv()');
+}
+
+// Close the pool (call this when shutting down the application)
+export async function closePool(): Promise<void> {
+  await pool.end();
+}
+
+// Export the pool for direct access if needed
+export { pool };

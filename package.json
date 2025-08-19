@@ -30,7 +30,11 @@
     "ingest:nyt:backfill": "tsx src/jobs/ingestNYT.ts --backfill",
     "convert:nyt:trends": "tsx src/jobs/convertNYTToTrends.ts",
     "worker": "tsx src/jobs/scheduler.ts",
-    "enrich:nyt:semantics": "tsx src/jobs/enrichNYTSemantic.ts"
+    "enrich:nyt:semantics": "tsx src/jobs/enrichNYTSemantic.ts",
+    "db:init": "node scripts/db-init.cjs",
+    "db:refresh-mv": "node scripts/db-refresh-mv.cjs",
+    "ingest:run": "node scripts/ingest-run.cjs",
+    "cron:start": "node scripts/cron-ping.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",

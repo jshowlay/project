@@ -1,111 +1,87 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getLiveTrends, getAvailableSources, getTrendsCount } from '../../../lib/db';
-import { generateMockTrendsWithFilters, getMockAvailableSources, getMockTrendsCount } from '../../../lib/mock';
-import { LiveTrendsResponse } from '../../../types/trend';
+import { getTrendingItems, getAvailableSources, getTrendStats } from '../../../lib/db';
+import { logger } from '../../../lib/logger';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
+  const startTime = Date.now();
+  
   try {
     const { searchParams } = request.nextUrl;
     
     // Parse query parameters
-    const query = searchParams.get('q') || '';
-    const sources = searchParams.get('sources')?.split(',').filter(Boolean) || [];
-    const region = searchParams.get('region') || '';
-    const sinceMins = parseInt(searchParams.get('sinceMins') || '60', 10);
-    const minScore = parseInt(searchParams.get('minScore') || '0', 10);
+    const source = searchParams.get('source');
     const limit = Math.min(parseInt(searchParams.get('limit') || '50', 10), 100);
-    const useMock = searchParams.get('mock') === 'true';
-    const page = parseInt(searchParams.get('page') || '1', 10);
-
-    // Check if this is a legacy request (homepage) or new request (live page)
-    const isLegacyRequest = searchParams.has('page') || searchParams.has('source');
-
-    const filters = {
-      query,
-      sources,
-      region,
-      sinceMins,
-      minScore,
-      limit
-    };
-
-    let trends;
-    let availableSources;
-    let totalCount;
-
-    // Temporarily force mock data for both homepage and live page to show data
-    const forceMock = isLegacyRequest || true; // Force mock for now
+    const minTrendScore = parseInt(searchParams.get('minTrendScore') || '0', 10);
+    const minVelocity = parseInt(searchParams.get('minVelocity') || '0', 10);
+    const includeStats = searchParams.get('stats') === 'true';
     
-    if (useMock || forceMock) {
-      // Use mock data
-      trends = generateMockTrendsWithFilters(filters);
-      availableSources = getMockAvailableSources();
-      totalCount = getMockTrendsCount();
-    } else {
-      try {
-        // Try to get real data from database
-        trends = await getLiveTrends(filters);
-        availableSources = await getAvailableSources();
-        totalCount = await getTrendsCount();
-      } catch (error) {
-        console.error('Database query failed, falling back to mock data:', error);
-        // Fallback to mock data
-        trends = generateMockTrendsWithFilters(filters);
-        availableSources = getMockAvailableSources();
-        totalCount = getMockTrendsCount();
-      }
-    }
-
-    // Return different formats based on request type
-    if (isLegacyRequest) {
-      // Legacy format for homepage
-      return NextResponse.json({
-        items: trends,
-        total: totalCount
-      });
-    } else {
-      // New format for live page
-      const response: LiveTrendsResponse = {
-        trends,
-        total: totalCount,
-        lastUpdated: new Date().toISOString()
-      };
-      return NextResponse.json(response);
-    }
-
-  } catch (error) {
-    console.error('Error in trends API:', error);
-    
-    // Final fallback to mock data
-    const mockTrends = generateMockTrendsWithFilters({
-      query: '',
-      sources: [],
-      region: '',
-      sinceMins: 60,
-      minScore: 0,
-      limit: 20
+    logger.info('Trends API request', {
+      source,
+      limit,
+      minTrendScore,
+      minVelocity,
+      includeStats,
     });
 
-    // Check if this is a legacy request
-    const { searchParams } = request.nextUrl;
-    const isLegacyRequest = searchParams.has('page') || searchParams.has('source');
+    // Get trending items
+    const items = await getTrendingItems({
+      source: source || undefined,
+      limit,
+      minTrendScore,
+      minVelocity,
+    });
 
-    if (isLegacyRequest) {
-      // Legacy format for homepage
-      return NextResponse.json({
-        items: mockTrends,
-        total: getMockTrendsCount()
-      }, { status: 200 });
-    } else {
-      // New format for live page
-      const response: LiveTrendsResponse = {
-        trends: mockTrends,
-        total: getMockTrendsCount(),
-        lastUpdated: new Date().toISOString()
-      };
-      return NextResponse.json(response, { status: 200 });
+    // Get additional data if requested
+    let stats = null;
+    let availableSources = null;
+    
+    if (includeStats) {
+      [stats, availableSources] = await Promise.all([
+        getTrendStats(),
+        getAvailableSources(),
+      ]);
     }
+
+    const duration = Date.now() - startTime;
+    
+    logger.info('Trends API response', {
+      itemCount: items.length,
+      duration,
+      includeStats: !!stats,
+    });
+
+    // Return response
+    return NextResponse.json({
+      success: true,
+      data: {
+        items,
+        total: items.length,
+        stats,
+        availableSources,
+      },
+      meta: {
+        source: source || 'all',
+        limit,
+        minTrendScore,
+        minVelocity,
+        duration,
+      },
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    
+    logger.error('Trends API failed', { error: errorMessage, duration });
+    
+    return NextResponse.json({
+      success: false,
+      error: 'Failed to fetch trending data',
+      message: errorMessage,
+      timestamp: new Date().toISOString(),
+    }, { status: 500 });
   }
 }
