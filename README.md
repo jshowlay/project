@@ -242,4 +242,4 @@ Log levels: `error`, `warn`, `info`, `debug`
 3) Start your 5-source worker (with the same PG_URL). If using the worker repo, ensure its `src/db.ts` includes SSL (this prompt patches it).
 4) Verify:
    - `npm run db:test`
-   - Hit `/api/health/db` (Next.js) or run the worker once to see "ingested".
+   - Hit `/api/health/db` (Next.js) or run the worker once to see "ingested".# trenderai_black
