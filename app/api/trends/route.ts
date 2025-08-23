@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTrendingItems, getAvailableSources, getTrendStats } from '../../../lib/db';
 import { logger } from '../../../lib/logger';
+import { parseQuery } from '../../../src/search/query';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,14 +13,30 @@ export async function GET(request: NextRequest) {
     
     // Parse query parameters
     const source = searchParams.get('source');
+    const q = searchParams.get('q'); // Search query
     const limit = Math.min(parseInt(searchParams.get('limit') || '50', 10), 100);
     const minTrendScore = parseInt(searchParams.get('minTrendScore') || '0', 10);
     const minVelocity = parseInt(searchParams.get('minVelocity') || '0', 10);
     const includeStats = searchParams.get('stats') === 'true';
     
+    // Parse advanced query if provided
+    let parsedQuery = null;
+    if (q && q.trim()) {
+      try {
+        parsedQuery = parseQuery(q.trim());
+      } catch (error) {
+        logger.warn({
+          msg: 'Failed to parse advanced query, using simple search',
+          q,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+    
     logger.info({
       msg: 'Trends API request',
       source,
+      q,
       limit,
       minTrendScore,
       minVelocity,
@@ -28,11 +45,14 @@ export async function GET(request: NextRequest) {
 
     // Get trending items
     const items = await getTrendingItems({
-      source: source || undefined,
+      source: parsedQuery?.sources?.[0] || source || undefined,
+      q: parsedQuery?.text || (parsedQuery ? undefined : q) || undefined,
       limit,
-      minTrendScore,
+      minTrendScore: parsedQuery?.minScore || minTrendScore,
       minVelocity,
     });
+    
+
 
     // Get additional data if requested
     let stats = null;

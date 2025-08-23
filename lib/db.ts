@@ -150,16 +150,17 @@ export async function upsertTrendItem(
   await query(text, params, client);
 }
 
-// Get trending items from materialized view
+// Get trending items from trend_record table
 export async function getTrendingItems(
   options: {
     source?: string;
+    q?: string; // Search query
     limit?: number;
     minTrendScore?: number;
     minVelocity?: number;
   } = {}
 ): Promise<any[]> {
-  const { source, limit = 50, minTrendScore = 0, minVelocity = 0 } = options;
+  const { source, q, limit = 50, minTrendScore = 0, minVelocity = 0 } = options;
   
   let text = `
     SELECT 
@@ -169,23 +170,35 @@ export async function getTrendingItems(
       topic,
       url,
       score,
-      upvotes,
-      downvotes,
-      comments,
-      views,
       trend_score,
       velocity,
       acceleration,
+      observed_at as last_seen_at,
       created_at,
       updated_at
-    FROM mv_trends_hourly
-    WHERE trend_score >= $1 AND velocity >= $2
+    FROM trend_record
+    WHERE observed_at >= NOW() - INTERVAL '24 hours'
+    AND trend_score >= $1 AND velocity >= $2
   `;
   
   const params: any[] = [minTrendScore, minVelocity];
   
+  // Add text search if query provided
+  if (q && q.trim()) {
+    const searchTerms = q.trim().split(/\s+/).filter(term => term.length > 0);
+    if (searchTerms.length > 0) {
+      const searchConditions = searchTerms.map((_, index) => {
+        const paramIndex = params.length + index + 1;
+        return `(title ILIKE $${paramIndex} OR topic ILIKE $${paramIndex})`;
+      }).join(' AND ');
+      text += ` AND (${searchConditions})`;
+      searchTerms.forEach(term => params.push(`%${term}%`));
+    }
+  }
+  
   if (source) {
-    text += ' AND source = $3';
+    const paramIndex = params.length + 1;
+    text += ` AND source = $${paramIndex}`;
     params.push(source);
   }
   
@@ -207,7 +220,7 @@ export async function getTrendingItems(
 // Get available sources
 export async function getAvailableSources(): Promise<string[]> {
   try {
-    const result = await query('SELECT DISTINCT source FROM trend_items ORDER BY source');
+    const result = await query('SELECT DISTINCT source FROM trend_record ORDER BY source');
     return result.rows.map(row => row.source);
   } catch (error) {
     logger.warn({
@@ -227,11 +240,12 @@ export async function getTrendStats(): Promise<{
 }> {
   try {
     const [itemsResult, sourcesResult, topResult] = await Promise.all([
-      query('SELECT COUNT(*) as count FROM trend_items'),
-      query('SELECT COUNT(DISTINCT source) as count FROM trend_items'),
+      query('SELECT COUNT(*) as count FROM trend_record WHERE observed_at >= NOW() - INTERVAL \'24 hours\''),
+      query('SELECT COUNT(DISTINCT source) as count FROM trend_record WHERE observed_at >= NOW() - INTERVAL \'24 hours\''),
       query(`
         SELECT source, external_id, title, trend_score, velocity 
-        FROM mv_trends_hourly 
+        FROM trend_record 
+        WHERE observed_at >= NOW() - INTERVAL '24 hours'
         ORDER BY trend_score DESC 
         LIMIT 5
       `)

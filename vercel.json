@@ -1,6 +1,8 @@
 {
   "crons": [
-    { "path": "/api/ingest", "schedule": "*/15 * * * *" }
+    { "path": "/api/ingest", "schedule": "*/15 * * * *" },
+    { "path": "/api/ingest/cron", "schedule": "0 * * * *" },
+    { "path": "/api/ingest/tiktok", "schedule": "*/15 * * * *" }
   ],
   "functions": {
     "app/api/cron/master/route.ts": {
@@ -25,6 +27,15 @@
       "maxDuration": 60
     },
     "app/api/cron/compute-trends/route.ts": {
+      "maxDuration": 300
+    },
+    "app/api/ingest/cron/route.ts": {
+      "maxDuration": 300
+    },
+    "app/api/ingest/test/route.ts": {
+      "maxDuration": 120
+    },
+    "app/api/ingest/tiktok/route.ts": {
       "maxDuration": 300
     }
   }

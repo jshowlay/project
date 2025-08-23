@@ -61,3 +61,296 @@ model TikTokVideo {
   @@index([accountId])
   @@index([postedAt])
 }
+
+model TTISession {
+  id            String    @id @default(cuid())
+  traceId       String    @unique @db.VarChar(36)
+  sessionId     String    @db.VarChar(36)
+  userId        String?   @db.VarChar(36)
+  ipHash        String?   @db.VarChar(64)
+  userAgent     String?   @db.Text
+  referrer      String?   @db.Text
+  pageUrl       String    @db.Text
+  region        String?   @db.VarChar(10)
+  deviceType    String?   @db.VarChar(20)
+  browser       String?   @db.VarChar(50)
+  os            String?   @db.VarChar(50)
+  createdAt     DateTime  @default(now()) @db.Timestamptz(6)
+  expiresAt     DateTime  @db.Timestamptz(6)
+  isActive      Boolean   @default(true)
+  
+  events        TTIEvent[]
+  metrics       TTIMetric[]
+  
+  @@index([traceId])
+  @@index([sessionId])
+  @@index([userId])
+  @@index([createdAt])
+  @@index([expiresAt])
+}
+
+model TTIEvent {
+  id            String    @id @default(cuid())
+  sessionId     String    @db.VarChar(36)
+  traceId       String    @db.VarChar(36)
+  eventType     String    @db.VarChar(50)
+  eventName     String    @db.VarChar(100)
+  timestamp     DateTime  @db.Timestamptz(6)
+  duration      Int?      // milliseconds
+  metadata      Json?
+  source        String    @db.VarChar(50) // 'client', 'server', 'ingestion'
+  component     String?   @db.VarChar(100)
+  route         String?   @db.VarChar(200)
+  
+  session       TTISession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  
+  @@index([sessionId])
+  @@index([traceId])
+  @@index([eventType])
+  @@index([timestamp])
+  @@index([source])
+}
+
+model TTIMetric {
+  id            String    @id @default(cuid())
+  sessionId     String    @db.VarChar(36)
+  traceId       String    @db.VarChar(36)
+  metricName    String    @db.VarChar(100)
+  metricValue   Float
+  unit          String?   @db.VarChar(20)
+  timestamp     DateTime  @db.Timestamptz(6)
+  metadata      Json?
+  source        String    @db.VarChar(50)
+  
+  session       TTISession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  
+  @@index([sessionId])
+  @@index([traceId])
+  @@index([metricName])
+  @@index([timestamp])
+  @@index([source])
+}
+
+model TTIAggregate {
+  id            String    @id @default(cuid())
+  date          DateTime  @db.Date
+  hour          Int
+  metricName    String    @db.VarChar(100)
+  source        String    @db.VarChar(50)
+  route         String?   @db.VarChar(200)
+  count         Int       @default(0)
+  sum           Float     @default(0)
+  min           Float?
+  max           Float?
+  avg           Float?
+  p50           Float?
+  p95           Float?
+  p99           Float?
+  createdAt     DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime  @updatedAt @db.Timestamptz(6)
+  
+  @@unique([date, hour, metricName, source, route])
+  @@index([date])
+  @@index([metricName])
+  @@index([source])
+}
+
+// Hardened Ingestion System Models
+model IngestCursor {
+  id            String    @id @default(cuid())
+  source        String    @db.VarChar(50)
+  cursorKey     String    @db.VarChar(100)
+  cursorValue   String    @db.Text
+  lastUpdated   DateTime  @default(now()) @db.Timestamptz(6)
+  expiresAt     DateTime  @db.Timestamptz(6)
+  metadata      Json?
+  
+  @@unique([source, cursorKey])
+  @@index([source])
+  @@index([lastUpdated])
+  @@index([expiresAt])
+}
+
+model RawEvent {
+  id            String    @id @default(cuid())
+  source        String    @db.VarChar(50)
+  externalId    String    @db.VarChar(255)
+  eventType     String    @db.VarChar(50)
+  rawData       Json      @db.JsonB
+  processed     Boolean   @default(false)
+  processedAt   DateTime? @db.Timestamptz(6)
+  errorCount    Int       @default(0)
+  lastError     String?   @db.Text
+  createdAt     DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime  @updatedAt @db.Timestamptz(6)
+  
+  @@unique([source, externalId])
+  @@index([source])
+  @@index([eventType])
+  @@index([processed])
+  @@index([createdAt])
+  @@index([updatedAt])
+}
+
+model IngestDeadLetter {
+  id            String    @id @default(cuid())
+  source        String    @db.VarChar(50)
+  eventType     String    @db.VarChar(50)
+  errorType     String    @db.VarChar(50)
+  errorMessage  String    @db.Text
+  rawData       Json?     @db.JsonB
+  retryCount    Int       @default(0)
+  maxRetries    Int       @default(3)
+  nextRetryAt   DateTime? @db.Timestamptz(6)
+  createdAt     DateTime  @default(now()) @db.Timestamptz(6)
+  expiresAt     DateTime  @db.Timestamptz(6)
+  
+  @@index([source])
+  @@index([eventType])
+  @@index([errorType])
+  @@index([nextRetryAt])
+  @@index([createdAt])
+  @@index([expiresAt])
+}
+
+// TikTok Ingestion System Models
+model TikTokPost {
+  id              String    @id @default(cuid())
+  postId          String    @unique @db.VarChar(255) // TikTok's unique post ID
+  authorId        String    @db.VarChar(255) // TikTok user ID
+  authorUsername  String    @db.VarChar(255)
+  authorDisplayName String? @db.VarChar(255)
+  authorAvatar    String?   @db.Text
+  authorVerified  Boolean   @default(false)
+  authorFollowers Int?      @default(0)
+  authorFollowing Int?      @default(0)
+  authorLikes     Int?      @default(0)
+  
+  description     String?   @db.Text
+  hashtags        String[]  // Array of hashtags
+  mentions        String[]  // Array of mentioned users
+  musicTitle      String?   @db.VarChar(500)
+  musicAuthor     String?   @db.VarChar(255)
+  
+  videoUrl        String?   @db.Text
+  videoDuration   Int?      // Duration in seconds
+  videoWidth      Int?
+  videoHeight     Int?
+  videoBitrate    Int?
+  videoFormat     String?   @db.VarChar(50)
+  
+  likeCount       Int       @default(0)
+  commentCount    Int       @default(0)
+  shareCount      Int       @default(0)
+  viewCount       Int       @default(0)
+  bookmarkCount   Int       @default(0)
+  
+  postedAt        DateTime  @db.Timestamptz(6)
+  crawledAt       DateTime  @default(now()) @db.Timestamptz(6)
+  
+  // Source tracking
+  sourceType      String    @db.VarChar(50) // 'trending', 'hashtag', 'user'
+  sourceValue     String    @db.VarChar(255) // hashtag name, username, etc.
+  ingestEventId   String?
+  ingestEvent     IngestEvent? @relation(fields: [ingestEventId], references: [id])
+  
+  // Raw data for debugging/analysis
+  rawData         Json?     @db.JsonB
+  
+  // Metadata
+  region          String?   @db.VarChar(10)
+  language        String?   @db.VarChar(10)
+  isPrivate       Boolean   @default(false)
+  isDeleted       Boolean   @default(false)
+  
+  createdAt       DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @db.Timestamptz(6)
+  
+  // Relations
+  
+  @@index([postId])
+  @@index([authorId])
+  @@index([authorUsername])
+  @@index([postedAt])
+  @@index([sourceType, sourceValue])
+  @@index([ingestEventId])
+  @@index([hashtags])
+  @@index([likeCount])
+  @@index([viewCount])
+  @@index([createdAt])
+}
+
+model IngestEvent {
+  id              String    @id @default(cuid())
+  source          String    @db.VarChar(50) // 'tiktok'
+  eventType       String    @db.VarChar(50) // 'trending', 'hashtag', 'user'
+  sourceValue     String?   @db.VarChar(255) // hashtag, username, etc.
+  
+  startedAt       DateTime  @default(now()) @db.Timestamptz(6)
+  completedAt     DateTime? @db.Timestamptz(6)
+  duration        Int?      // Duration in milliseconds
+  
+  itemsRequested  Int       @default(0)
+  itemsReceived   Int       @default(0)
+  itemsProcessed  Int       @default(0)
+  itemsSkipped    Int       @default(0)
+  itemsFailed     Int       @default(0)
+  
+  success         Boolean   @default(false)
+  errorMessage    String?   @db.Text
+  errorStack      String?   @db.Text
+  
+  // Configuration used
+  config          Json?     @db.JsonB
+  
+  // Relations
+  posts           TikTokPost[]
+  
+  createdAt       DateTime  @default(now()) @db.Timestamptz(6)
+  
+  @@index([source])
+  @@index([eventType])
+  @@index([startedAt])
+  @@index([success])
+  @@index([createdAt])
+}
+
+model TikTokHourly {
+  id              String    @id @default(cuid())
+  date            DateTime  @db.Date
+  hour            Int       // 0-23
+  
+  // Aggregation metrics
+  totalPosts      Int       @default(0)
+  totalLikes      Int       @default(0)
+  totalComments   Int       @default(0)
+  totalShares     Int       @default(0)
+  totalViews      Int       @default(0)
+  totalBookmarks  Int       @default(0)
+  
+  // Source breakdown
+  trendingPosts   Int       @default(0)
+  hashtagPosts    Int       @default(0)
+  userPosts       Int       @default(0)
+  
+  // Top hashtags (stored as JSON array)
+  topHashtags     Json?     @db.JsonB // [{hashtag: string, count: number}]
+  
+  // Top authors (stored as JSON array)
+  topAuthors      Json?     @db.JsonB // [{username: string, posts: number, likes: number}]
+  
+  // Engagement metrics
+  avgLikes        Float?    @default(0)
+  avgComments     Float?    @default(0)
+  avgShares       Float?    @default(0)
+  avgViews        Float?    @default(0)
+  engagementRate  Float?    @default(0) // (likes + comments + shares) / views
+  
+  createdAt       DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @db.Timestamptz(6)
+  
+  @@unique([date, hour])
+  @@index([date])
+  @@index([hour])
+  @@index([createdAt])
+}

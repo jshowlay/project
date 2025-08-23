@@ -1,24 +1,63 @@
-import PrimaryNav from '@/components/PrimaryNav';
-import MobileNavBar from '@/components/MobileNavBar';
-import CommandPalette from '@/components/CommandPalette';
-import StickyHeader from '@/components/StickyHeader';
+import { Suspense } from 'react';
+import { alertsDB } from '../../lib/alerts';
+import { getUserId } from '../../lib/auth';
+import AlertsHeader from '../../components/AlertsHeader';
+import AlertsRulesSection from '../../components/AlertsRulesSection';
+import AlertsInboxSection from '../../components/AlertsInboxSection';
+import AlertsSkeleton from '../../components/AlertsSkeleton';
 
-export const dynamic = 'force-static';
-
-export default function Page() {
+export default async function AlertsPage() {
   return (
-    <div className="mx-auto max-w-6xl p-6">
-      <StickyHeader>
-        <div className="mx-auto max-w-6xl px-4 py-2 sm:px-6 sm:py-3">
-          <PrimaryNav />
-        </div>
-      </StickyHeader>
-      <CommandPalette />
-      <MobileNavBar /><div className="h-12 sm:hidden" />
-      <section className="mt-6">
-        <h1 className="text-2xl font-semibold">Alerts</h1>
-        <p className="opacity-80 mt-2">Create keyword/source alerts and manage schedules. (Coming next.)</p>
-      </section>
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <Suspense fallback={<AlertsSkeleton />}>
+          <AlertsContent />
+        </Suspense>
+      </div>
     </div>
   );
+}
+
+async function AlertsContent() {
+  try {
+    const userId = await getUserId();
+    
+    // Fetch initial data
+    const [rulesData, eventsData, unreadCount] = await Promise.all([
+      alertsDB.getAlertRules(userId, 1, 10),
+      alertsDB.getAlertEvents(userId, 1, 10, true), // unread only
+      alertsDB.getUnreadAlertCount(userId)
+    ]);
+
+    return (
+      <>
+        <AlertsHeader unreadCount={unreadCount} />
+        
+        <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Rules Section */}
+          <div className="bg-white rounded-lg shadow">
+            <AlertsRulesSection initialRules={rulesData} />
+          </div>
+          
+          {/* Inbox Section */}
+          <div className="bg-white rounded-lg shadow">
+            <AlertsInboxSection initialEvents={eventsData} />
+          </div>
+        </div>
+      </>
+    );
+  } catch (error) {
+    console.error('Error loading alerts page:', error);
+    
+    return (
+      <div className="text-center py-12">
+        <div className="text-red-600 text-lg font-medium">
+          Error loading alerts
+        </div>
+        <div className="text-gray-500 mt-2">
+          Please try refreshing the page
+        </div>
+      </div>
+    );
+  }
 }

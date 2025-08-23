@@ -7,15 +7,11 @@ import {
   RecentSearch
 } from '@/search/recent';
 import { CATEGORIES, getCategory } from '@/categories/config';
-import Logo from '@/components/Logo';
 import TrendSparkline from '@/components/TrendSparkline';
 import ShareButtons from '@/components/ShareButtons';
 import CardImage from '@/components/CardImage';
-import PrimaryNav from '@/components/PrimaryNav';
-import MobileNavBar from '@/components/MobileNavBar';
+import SaveButton from '../components/SaveButton';
 import CommandPalette from '@/components/CommandPalette';
-import StickyHeader from '@/components/StickyHeader';
-import DensityToggle from '@/components/DensityToggle';
 
 
 type Item = {
@@ -334,31 +330,9 @@ export default function Page() {
     <div className="min-h-screen" style={{ background:'#000', color:'#fff' }}>
       <div className="mx-auto max-w-6xl p-6">
         <Toast message={error} onClose={()=>setError('')} />
-        <StickyHeader>
-          <div className="mx-auto max-w-6xl px-4 py-2 sm:px-6 sm:py-3">
-            {/* Header: Logo + Navigation + Right-side actions */}
-            <header className="w-full flex items-center gap-4">
-              {/* Left: Logo */}
-              <div className="shrink-0">
-                <Logo size="lg" />
-              </div>
 
-              {/* Center: Primary Navigation */}
-              <nav className="flex-1 hidden sm:flex items-center justify-center gap-2">
-                <PrimaryNav />
-              </nav>
-
-              {/* Right: Density Toggle */}
-              <div className="shrink-0 hidden sm:flex items-center gap-4">
-                <DensityToggle />
-              </div>
-            </header>
-          </div>
-        </StickyHeader>
 
         <CommandPalette />
-        <MobileNavBar />
-        <div className="h-12 sm:hidden" />
 
         {/* Main Content */}
         <section className="mt-4">
@@ -518,15 +492,42 @@ export default function Page() {
                       <span key={tag} className="text-xs px-2 py-1 rounded-full" style={{ background:'#222' }}>#{tag}</span>
                     ))}
                   </div>
-                  <div className="mt-3">
-                    <ShareButtons 
-                      title={it.topic} 
-                      url={it.url} 
-                      source={it.source} 
-                      tags={asTagArray((it as any).tags)}
-                    />
+                  <div className="mt-3 flex items-center justify-between">
+                    <div className="flex gap-2">
+                      <SaveButton
+                        trendId={it.id || it.topic}
+                        trendSource={it.source}
+                        trendTopic={it.topic}
+                        trendTitle={it.title || undefined}
+                        trendUrl={it.url || undefined}
+                        trendImageUrl={it.imageUrl || undefined}
+                        trendScore={it.score}
+                        trendVelocity={it.velocity}
+                        trendAcceleration={it.acceleration}
+                        trendRegion={it.region || 'US'}
+                        trendTags={asTagArray((it as any).tags)}
+                        trendObservedAt={new Date(it.observedAt)}
+                        size="sm"
+                        variant="icon"
+                      />
+                      <ShareButtons 
+                        title={it.topic} 
+                        url={it.url} 
+                        source={it.source} 
+                        tags={asTagArray((it as any).tags)}
+                      />
+                    </div>
+                    {it.url && (
+                      <a 
+                        href={it.url} 
+                        target="_blank" 
+                        className="text-sm underline" 
+                        style={{ color:'var(--accent)' }}
+                      >
+                        Open
+                      </a>
+                    )}
                   </div>
-                  {it.url && <a href={it.url} target="_blank" className="mt-3 inline-block underline" style={{ color:'var(--accent)' }}>Open</a>}
                 </div>
               );
             })}

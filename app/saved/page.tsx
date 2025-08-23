@@ -1,97 +1,73 @@
-'use client';
-import { useEffect, useState } from 'react';
-import PrimaryNav from '@/components/PrimaryNav';
-import MobileNavBar from '@/components/MobileNavBar';
-import CommandPalette from '@/components/CommandPalette';
-import StickyHeader from '@/components/StickyHeader';
+import { Suspense } from 'react';
+import { savedTrendsDB } from '../../lib/saved-trends';
+import { getUserId } from '../../lib/auth';
+import { notFound } from 'next/navigation';
+import SavedTrendsGrid from '../../components/SavedTrendsGrid';
+import SavedTrendsHeader from '../../components/SavedTrendsHeader';
 
-type SavedPost = {
-  trendId: string;
-  title: string;
-  caption: string;
-  platform: 'ig' | 'tiktok' | 'x' | 'li';
-  hashtags: string[];
-  ts: number;
-};
-
-export default function SavedPage() {
-  const [items, setItems] = useState<SavedPost[]>([]);
-
-  useEffect(() => {
-    try {
-      const s = JSON.parse(localStorage.getItem('savedPosts') || '[]');
-      setItems(Array.isArray(s) ? s : []);
-    } catch {}
-  }, []);
-
-  const remove = (index: number) => {
-    const newItems = [...items];
-    newItems.splice(index, 1);
-    localStorage.setItem('savedPosts', JSON.stringify(newItems));
-    setItems(newItems);
+interface SavedPageProps {
+  searchParams: {
+    page?: string;
+    limit?: string;
   };
+}
 
-  const copyText = async (text: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      // You could add a toast notification here
-    } catch (err) {
-      console.error('Failed to copy text:', err);
+export default async function SavedPage({ searchParams }: SavedPageProps) {
+  try {
+    // Get user ID
+    const userId = await getUserId();
+    
+    // Parse pagination parameters
+    const page = parseInt(searchParams.page || '1');
+    const limit = parseInt(searchParams.limit || '20');
+    
+    // Validate parameters
+    if (page < 1 || limit < 1 || limit > 100) {
+      return notFound();
     }
-  };
 
-  return (
-    <div className="min-h-screen" style={{ background:'#000', color:'#fff' }}>
-      <div className="mx-auto max-w-6xl p-6">
-        <StickyHeader>
-          <div className="mx-auto max-w-6xl px-4 py-2 sm:px-6 sm:py-3">
-            <PrimaryNav />
-          </div>
-        </StickyHeader>
+    // Get saved trends with details
+    const result = await savedTrendsDB.getSavedTrendsWithDetails(userId, page, limit);
 
-        <CommandPalette />
-        <MobileNavBar />
-        <div className="h-12 sm:hidden" />
-
-        <div className="flex items-center justify-between">
-          <div className="text-2xl font-extrabold">Your Saved Posts</div>
-          <a href="/" className="px-3 py-2 rounded-xl border border-border hover:bg-neutral-900 text-sm">← Back</a>
+    return (
+      <div className="min-h-screen bg-black text-white">
+        <div className="container mx-auto px-4 py-8">
+          <SavedTrendsHeader 
+            total={result.total} 
+            currentPage={page} 
+            totalPages={result.totalPages}
+          />
+          
+          <Suspense fallback={<SavedTrendsSkeleton />}>
+            <SavedTrendsGrid 
+              trends={result.trends}
+              currentPage={page}
+              totalPages={result.totalPages}
+            />
+          </Suspense>
         </div>
-
-        {items.length === 0 ? (
-          <div className="text-neutral-400 mt-3">No saved posts yet.</div>
-        ) : (
-          <div className="grid gap-4 mt-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-            {items.map((p, i) => (
-              <div key={i} className="bg-card border border-border rounded-xl p-4">
-                <div className="text-xs px-2 py-1 border border-neutral-700 rounded text-neutral-400 inline-block">
-                  {p.platform.toUpperCase()}
-                </div>
-                <div className="text-xs text-neutral-400 mt-1">
-                  {new Date(p.ts).toLocaleString()}
-                </div>
-                <div className="font-semibold mt-2 whitespace-pre-wrap">{p.caption}</div>
-                <div className="flex gap-2 mt-3">
-                  <button 
-                    className="px-3 py-2 rounded-xl bg-gold text-black font-semibold text-sm"
-                    onClick={() => copyText(p.caption)}
-                  >
-                    Copy
-                  </button>
-                  <button 
-                    className="px-3 py-2 rounded-xl border border-border text-neutral-300 text-sm"
-                    onClick={() => remove(i)}
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div className="text-sm text-neutral-400 mt-3">Saved locally in your browser.</div>
       </div>
+    );
+  } catch (error) {
+    console.error('Error loading saved trends:', error);
+    return notFound();
+  }
+}
+
+function SavedTrendsSkeleton() {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mt-8">
+      {Array.from({ length: 8 }).map((_, i) => (
+        <div key={i} className="rounded-2xl border border-[#1b1b1b] bg-[#0f0f0f] p-4 animate-pulse">
+          <div className="h-4 w-20 mb-2 bg-gray-700 rounded" />
+          <div className="h-6 w-3/4 mb-2 bg-gray-700 rounded" />
+          <div className="h-4 w-40 bg-gray-700 rounded" />
+          <div className="mt-3 flex gap-2">
+            <div className="h-6 w-16 bg-gray-700 rounded" />
+            <div className="h-6 w-16 bg-gray-700 rounded" />
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

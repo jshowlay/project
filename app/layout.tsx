@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 // import { bootOnce } from '@/server/boot';
 import { DensityProvider } from '@/components/DensityProvider';
+import Header from '../components/Header';
 // bootOnce();
 
 const inter = Inter({ subsets: ['latin'] });
@@ -22,6 +23,10 @@ export default function RootLayout({
     <html lang="en" className="dark">
       <body className={`${inter.className} bg-black text-white antialiased`}>
         <DensityProvider>
+          <Header 
+            isAuthed={true} 
+            savedCount={25}
+          />
           {children}
         </DensityProvider>
       </body>
