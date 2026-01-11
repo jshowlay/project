@@ -11,7 +11,7 @@ const DEFAULT_NAV_ITEMS = [
   { label: 'Live', href: '/live' },
   { label: 'Trends', href: '/trends' },
   { label: 'Alerts', href: '/alerts' },
-  { label: 'Resources', href: '/resources' },
+  { label: 'Resources', href: 'https://trenderai.com/resources/' },
   { label: 'Blog', href: 'http://www.trenderai.com' },
 ];
 
