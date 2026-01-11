@@ -1,6 +1,6 @@
 import React from 'react';
 import SmartImg, { AspectRatioSmartImg, LazySmartImg } from '@/components/SmartImg';
-import MediaCard, { NYTimesCard, YouTubeCard, TwitterCard, RedditCard, InstagramCard } from '@/components/content/MediaCard';
+import MediaCard from '@/components/content/MediaCard';
 
 // Sample data for testing
 const sampleData = {
@@ -198,16 +198,42 @@ export default function ImageDebugPage() {
         <section className="mb-12">
           <h2 className="text-2xl font-semibold text-gray-900 mb-6">Media Card Testing</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <NYTimesCard data={sampleData.nytimes} />
-            <YouTubeCard data={sampleData.youtube} />
-            <TwitterCard data={sampleData.twitter} />
-            <RedditCard data={sampleData.reddit} />
-            <InstagramCard data={sampleData.instagram} />
             <MediaCard
-              data={{ image_url: "https://picsum.photos/400/300?random=99" }}
+              source="nytimes"
+              title={sampleData.nytimes.title}
+              imageUrl={sampleData.nytimes.media?.[0]?.["media-metadata"]?.[0]?.url}
+              url="https://www.nytimes.com"
+            />
+            <MediaCard
+              source="youtube"
+              title={sampleData.youtube.snippet.title}
+              imageUrl={sampleData.youtube.snippet.thumbnails.maxres.url}
+              url="https://www.youtube.com"
+              channel="Sample Channel"
+            />
+            <MediaCard
+              source="twitter"
+              title={sampleData.twitter.text}
+              imageUrl={sampleData.twitter.entities?.media?.[0]?.media_url_https}
+              url="https://twitter.com"
+            />
+            <MediaCard
+              source="reddit"
+              title={sampleData.reddit.title}
+              imageUrl={sampleData.reddit.preview?.images?.[0]?.source?.url}
+              url="https://reddit.com"
+            />
+            <MediaCard
+              source="instagram"
+              title={sampleData.instagram.caption.text}
+              imageUrl={sampleData.instagram.images?.standard_resolution?.url}
+              url="https://instagram.com"
+            />
+            <MediaCard
               source="generic"
               title="Generic Media Card"
-              description="This is a generic media card with a placeholder image."
+              imageUrl="https://picsum.photos/400/300?random=99"
+              url="#"
             />
           </div>
         </section>
