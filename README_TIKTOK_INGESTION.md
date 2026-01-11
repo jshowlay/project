@@ -5,10 +5,10 @@ A complete, production-ready TikTok data ingestion system for the Trender AI pla
 ## 🚀 Features
 
 - **Multi-source ingestion**: Trending posts, hashtag-based posts, and user-specific posts
-- **Real-time processing**: Runs every 15 minutes via cron
+- **Scheduled processing**: Runs daily via Vercel cron (Hobby plan compatible)
 - **Data normalization**: Converts raw TikTok data into structured format
 - **Deduplication**: Prevents duplicate posts by TikTok post ID
-- **Hourly aggregations**: Generates analytics summaries every hour
+- **Daily aggregations**: Generates analytics summaries daily
 - **Comprehensive logging**: Detailed logging for monitoring and debugging
 - **Error handling**: Robust error handling with dead letter queue support
 - **Rate limiting**: Configurable rate limits to respect API boundaries
@@ -52,7 +52,7 @@ TIKTOK_SOURCES=trending,hashtag:ai,hashtag:tech
 
 # TikTok Ingestion Configuration
 TIKTOK_INGEST_ENABLED=true
-TIKTOK_INGEST_CRON=*/15 * * * *  # Every 15 minutes
+TIKTOK_INGEST_CRON=0 2 * * *  # Daily at 2 AM UTC (Vercel Hobby plan: once per day)
 TIKTOK_MAX_POSTS_PER_SOURCE=50
 TIKTOK_MIN_POST_AGE_HOURS=1      # Only fetch posts from last hour
 TIKTOK_MAX_POST_AGE_HOURS=24     # Don't fetch posts older than 24 hours
@@ -62,7 +62,7 @@ TIKTOK_RETRY_DELAY_MS=5000
 
 # TikTok Data Processing
 TIKTOK_ENABLE_HOURLY_AGGREGATION=true
-TIKTOK_AGGREGATION_CRON=0 * * * *  # Every hour
+TIKTOK_AGGREGATION_CRON=0 3 * * *  # Daily at 3 AM UTC (Vercel Hobby plan: once per day)
 TIKTOK_CLEANUP_OLD_DATA_DAYS=30    # Keep data for 30 days
 TIKTOK_ENABLE_DEAD_LETTER_QUEUE=true
 
@@ -126,10 +126,12 @@ curl -X GET http://localhost:3000/api/ingest/tiktok \
 
 ### Automated Ingestion
 
-The system is configured to run automatically via Vercel cron jobs:
+The system is configured to run automatically via Vercel cron jobs (Hobby plan compatible):
 
-- **Ingestion**: Every 15 minutes (`*/15 * * * *`)
-- **Aggregation**: Every hour (`0 * * * *`)
+- **Ingestion**: Daily at 2 AM UTC (`0 2 * * *`)
+- **Aggregation**: Daily at 3 AM UTC (`0 3 * * *`)
+
+**Note**: Vercel Hobby plan only allows daily cron jobs (once per day). For more frequent runs, upgrade to Pro plan or use manual triggers.
 
 ### Command Line Tools
 

@@ -190,7 +190,7 @@ export async function GET(request: NextRequest) {
       enabled: process.env.TIKTOK_INGEST_ENABLED === 'true',
       sources: process.env.TIKTOK_SOURCES || 'trending',
       maxPostsPerSource: parseInt(process.env.TIKTOK_MAX_POSTS_PER_SOURCE || '50'),
-      cronSchedule: process.env.TIKTOK_INGEST_CRON || '*/15 * * * *',
+      cronSchedule: process.env.TIKTOK_INGEST_CRON || '0 2 * * *', // Default: Daily at 2 AM UTC (Vercel Hobby compatible)
       hourlyAggregation: process.env.TIKTOK_ENABLE_HOURLY_AGGREGATION === 'true',
       cleanupEnabled: process.env.TIKTOK_CLEANUP_OLD_DATA_DAYS ? true : false,
       cleanupDays: parseInt(process.env.TIKTOK_CLEANUP_OLD_DATA_DAYS || '30'),
