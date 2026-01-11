@@ -12,6 +12,28 @@ export interface TrendItem {
   downvotes?: number;
   comments?: number;
   views?: number;
+  // Enhanced image support
+  image_url?: string;
+  image_urls?: {
+    high?: string;
+    medium?: string;
+    low?: string;
+    fallback?: {
+      maxres?: string;
+      high?: string;
+      medium?: string;
+      default?: string;
+    };
+  };
+  metadata?: {
+    channel?: string;
+    publishedAt?: string;
+    duration?: string;
+    tags?: string[];
+    defaultAudioLanguage?: string;
+    thumbnails?: any;
+    [key: string]: any;
+  };
 }
 
 // Base class for data sources
@@ -55,7 +77,7 @@ export class RedditSource extends DataSource {
         const subredditItems = await this.fetchSubreddit(subreddit);
         items.push(...subredditItems);
       } catch (error) {
-        logger.error(`Failed to fetch from r/${subreddit}`, { error: error instanceof Error ? error.message : String(error) });
+        logger.error(`Failed to fetch from r/${subreddit}: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
 
@@ -176,7 +198,8 @@ export class YouTubeSource extends DataSource {
 
   async fetchData(): Promise<TrendItem[]> {
     const startTime = Date.now();
-    const url = `https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics&chart=mostPopular&regionCode=${this.regionCode}&videoCategoryId=${this.videoCategoryId}&maxResults=25&key=${this.apiKey}`;
+    // Request additional parts to get more detailed thumbnail information
+    const url = `https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics,contentDetails&chart=mostPopular&regionCode=${this.regionCode}&videoCategoryId=${this.videoCategoryId}&maxResults=25&key=${this.apiKey}`;
     
     try {
       await this.delay();
@@ -190,24 +213,77 @@ export class YouTubeSource extends DataSource {
       const duration = Date.now() - startTime;
       this.logApiCall('/youtube/v3/videos', duration, true);
 
-      return data.items.map((video: any) => ({
-        source: 'youtube',
-        external_id: video.id,
-        title: video.snippet.title,
-        topic: video.snippet.categoryId,
-        url: `https://www.youtube.com/watch?v=${video.id}`,
-        score: parseInt(video.statistics.viewCount || '0'),
-        upvotes: parseInt(video.statistics.likeCount || '0'),
-        downvotes: 0,
-        comments: parseInt(video.statistics.commentCount || '0'),
-        views: parseInt(video.statistics.viewCount || '0'),
-      }));
+      return data.items.map((video: any) => {
+        const videoId = video.id;
+        const thumbnails = video.snippet.thumbnails;
+        const bestThumbnailUrl = this.getBestThumbnailUrl(thumbnails, videoId);
+        const allThumbnailUrls = this.getAllThumbnailUrls(thumbnails, videoId);
+        
+        return {
+          source: 'youtube',
+          external_id: videoId,
+          title: video.snippet.title,
+          topic: video.snippet.categoryId,
+          url: `https://www.youtube.com/watch?v=${videoId}`,
+          score: parseInt(video.statistics.viewCount || '0'),
+          upvotes: parseInt(video.statistics.likeCount || '0'),
+          downvotes: 0,
+          comments: parseInt(video.statistics.commentCount || '0'),
+          views: parseInt(video.statistics.viewCount || '0'),
+          // Enhanced image data
+          image_url: bestThumbnailUrl,
+          image_urls: allThumbnailUrls,
+          metadata: {
+            channel: video.snippet.channelTitle,
+            publishedAt: video.snippet.publishedAt,
+            duration: video.contentDetails?.duration,
+            tags: video.snippet.tags || [],
+            defaultAudioLanguage: video.snippet.defaultAudioLanguage,
+            thumbnails: thumbnails
+          }
+        };
+      });
     } catch (error) {
       const duration = Date.now() - startTime;
       const errorMessage = error instanceof Error ? error.message : String(error);
       this.logApiCall('/youtube/v3/videos', duration, false, errorMessage);
       throw error;
     }
+  }
+
+  /**
+   * Get the best available thumbnail URL from YouTube thumbnails
+   * Prioritizes maxres > standard > high > medium > default
+   */
+  private getBestThumbnailUrl(thumbnails: any, videoId: string): string {
+    const qualityOrder = ['maxres', 'standard', 'high', 'medium', 'default'];
+    
+    for (const quality of qualityOrder) {
+      if (thumbnails[quality]?.url) {
+        return thumbnails[quality].url;
+      }
+    }
+    
+    // Fallback to a default YouTube thumbnail pattern
+    return `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+  }
+
+  /**
+   * Get multiple thumbnail URLs for different use cases
+   */
+  private getAllThumbnailUrls(thumbnails: any, videoId: string) {
+    return {
+      high: thumbnails.maxres?.url || thumbnails.standard?.url || thumbnails.high?.url,
+      medium: thumbnails.medium?.url || thumbnails.high?.url,
+      low: thumbnails.default?.url,
+      // Fallback URLs using YouTube's standard patterns
+      fallback: {
+        maxres: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
+        high: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
+        medium: `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`,
+        default: `https://img.youtube.com/vi/${videoId}/default.jpg`
+      }
+    };
   }
 }
 
@@ -221,7 +297,7 @@ export function createDataSources(): DataSource[] {
       sources.push(new RedditSource());
       logger.info('Reddit source enabled');
     } catch (error) {
-      logger.error('Failed to initialize Reddit source', { error: error instanceof Error ? error.message : String(error) });
+      logger.error(`Failed to initialize Reddit source: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -231,7 +307,7 @@ export function createDataSources(): DataSource[] {
       sources.push(new NYTimesSource());
       logger.info('NYTimes source enabled');
     } catch (error) {
-      logger.error('Failed to initialize NYTimes source', { error: error instanceof Error ? error.message : String(error) });
+      logger.error(`Failed to initialize NYTimes source: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -241,7 +317,7 @@ export function createDataSources(): DataSource[] {
       sources.push(new YouTubeSource());
       logger.info('YouTube source enabled');
     } catch (error) {
-      logger.error('Failed to initialize YouTube source', { error: error instanceof Error ? error.message : String(error) });
+      logger.error(`Failed to initialize YouTube source: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -249,5 +325,4 @@ export function createDataSources(): DataSource[] {
   return sources;
 }
 
-// Export types
-export type { TrendItem };
+// Export types - TrendItem is already exported as interface above

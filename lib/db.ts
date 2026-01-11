@@ -150,7 +150,7 @@ export async function upsertTrendItem(
   await query(text, params, client);
 }
 
-// Get trending items from trend_record table
+// Get trending items from TrendRecord table (Prisma model)
 export async function getTrendingItems(
   options: {
     source?: string;
@@ -162,23 +162,32 @@ export async function getTrendingItems(
 ): Promise<any[]> {
   const { source, q, limit = 50, minTrendScore = 0, minVelocity = 0 } = options;
   
+  // Use Prisma TrendRecord table structure
+  // Map: topic -> title, score -> trend_score, delta24h -> velocity (for now)
   let text = `
     SELECT 
+      id,
       source,
-      external_id,
-      title,
+      topic as external_id,
       topic,
+      topic as title,
       url,
       score,
-      trend_score,
-      velocity,
-      acceleration,
-      observed_at as last_seen_at,
-      created_at,
-      updated_at
-    FROM trend_record
-    WHERE observed_at >= NOW() - INTERVAL '24 hours'
-    AND trend_score >= $1 AND velocity >= $2
+      score as trend_score,
+      COALESCE(delta24h, 0) as velocity,
+      0 as acceleration,
+      "observedAt" as observed_at,
+      "observedAt" as last_seen_at,
+      "createdAt" as created_at,
+      "createdAt" as updated_at,
+      region,
+      tags,
+      "imageUrl" as image_url,
+      images
+    FROM "TrendRecord"
+    WHERE "observedAt" >= NOW() - INTERVAL '24 hours'
+    AND score >= $1
+    AND COALESCE(delta24h, 0) >= $2
   `;
   
   const params: any[] = [minTrendScore, minVelocity];
@@ -189,7 +198,7 @@ export async function getTrendingItems(
     if (searchTerms.length > 0) {
       const searchConditions = searchTerms.map((_, index) => {
         const paramIndex = params.length + index + 1;
-        return `(title ILIKE $${paramIndex} OR topic ILIKE $${paramIndex})`;
+        return `(topic ILIKE $${paramIndex})`;
       }).join(' AND ');
       text += ` AND (${searchConditions})`;
       searchTerms.forEach(term => params.push(`%${term}%`));
@@ -202,7 +211,7 @@ export async function getTrendingItems(
     params.push(source);
   }
   
-  text += ' ORDER BY trend_score DESC, velocity DESC LIMIT $' + (params.length + 1);
+  text += ` ORDER BY score DESC, COALESCE(delta24h, 0) DESC LIMIT $${params.length + 1}`;
   params.push(limit);
   
   try {

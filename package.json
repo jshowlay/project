@@ -47,7 +47,11 @@
     "tiktok:migrate": "prisma migrate dev --name add_tiktok_models",
     "tiktok:generate": "prisma generate",
     "tiktok:setup": "tsx scripts/setup-tiktok-tables.ts",
-    "tiktok:test-system": "tsx scripts/test-tiktok.ts"
+    "tiktok:test-system": "tsx scripts/test-tiktok.ts",
+    "google-trends:test": "tsx scripts/test-google-trends.ts",
+    "refresh:data": "tsx scripts/refresh-all-data.ts",
+    "ingest:instagram": "tsx scripts/ingest-instagram.ts",
+    "instagram:refresh-token": "tsx scripts/refresh-instagram-token.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",

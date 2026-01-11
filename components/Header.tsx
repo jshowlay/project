@@ -12,7 +12,7 @@ const DEFAULT_NAV_ITEMS = [
   { label: 'Trends', href: '/trends' },
   { label: 'Alerts', href: '/alerts' },
   { label: 'Resources', href: '/resources' },
-  { label: 'Blog', href: '/blog' },
+  { label: 'Blog', href: 'http://www.trenderai.com' },
 ];
 
 // Props interface
@@ -177,22 +177,44 @@ export default function Header({
               role="navigation"
               aria-label="Main navigation"
             >
-              {fullNav.map((item) => (
-                <Link
-                  key={item.label}
-                  href={item.href}
-                  className="
-                    text-gray-300 hover:text-white transition-colors duration-200
-                    focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-black rounded px-2 py-1
-                    relative group
-                  "
-                  aria-label={`Navigate to ${item.label}`}
-                >
-                  {item.label}
-                  {/* Hover underline effect */}
-                  <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-blue-500 transition-all duration-200 group-hover:w-full"></span>
-                </Link>
-              ))}
+              {fullNav.map((item) => {
+                const isExternal = item.href.startsWith('http');
+                const linkClassName = `
+                  text-gray-300 hover:text-white transition-colors duration-200
+                  focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-black rounded px-2 py-1
+                  relative group
+                `;
+                
+                if (isExternal) {
+                  return (
+                    <a
+                      key={item.label}
+                      href={item.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={linkClassName}
+                      aria-label={`Navigate to ${item.label}`}
+                    >
+                      {item.label}
+                      {/* Hover underline effect */}
+                      <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-blue-500 transition-all duration-200 group-hover:w-full"></span>
+                    </a>
+                  );
+                }
+                
+                return (
+                  <Link
+                    key={item.label}
+                    href={item.href}
+                    className={linkClassName}
+                    aria-label={`Navigate to ${item.label}`}
+                  >
+                    {item.label}
+                    {/* Hover underline effect */}
+                    <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-blue-500 transition-all duration-200 group-hover:w-full"></span>
+                  </Link>
+                );
+              })}
             </nav>
 
             {/* Desktop Action Buttons */}
@@ -319,21 +341,42 @@ export default function Header({
         >
           <div className="px-4 py-6 space-y-4 safe-area-inset-top">
             {/* Mobile Navigation Links */}
-            {fullNav.map((item) => (
-              <Link
-                key={item.label}
-                href={item.href}
-                onClick={closeMobileMenu}
-                className="
-                  block text-gray-300 hover:text-white transition-colors duration-200
-                  focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-black rounded px-4 py-3
-                  text-lg font-medium touch-manipulation
-                "
-                aria-label={`Navigate to ${item.label}`}
-              >
-                {item.label}
-              </Link>
-            ))}
+            {fullNav.map((item) => {
+              const isExternal = item.href.startsWith('http');
+              const linkClassName = `
+                block text-gray-300 hover:text-white transition-colors duration-200
+                focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-black rounded px-4 py-3
+                text-lg font-medium touch-manipulation
+              `;
+              
+              if (isExternal) {
+                return (
+                  <a
+                    key={item.label}
+                    href={item.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={closeMobileMenu}
+                    className={linkClassName}
+                    aria-label={`Navigate to ${item.label}`}
+                  >
+                    {item.label}
+                  </a>
+                );
+              }
+              
+              return (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  onClick={closeMobileMenu}
+                  className={linkClassName}
+                  aria-label={`Navigate to ${item.label}`}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
 
             {/* Mobile Action Buttons */}
             <div className="pt-6 border-t border-gray-800 space-y-3">
