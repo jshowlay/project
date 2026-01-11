@@ -1,6 +1,6 @@
 import { Adapter, FetchOptions } from './types';
 import { TrendItem } from '../types/trends';
-import { pool } from '../lib/db';
+import { query } from '../lib/db';
 
 export const twitterAdapter: Adapter = {
   SOURCE_ID: 'twitter',
@@ -8,7 +8,7 @@ export const twitterAdapter: Adapter = {
   async fetchTrends(opts?: FetchOptions): Promise<TrendItem[]> {
     const limit = opts?.limit || 50;
     
-    const result = await pool.query(`
+    const result = await query(`
       SELECT 
         external_id as id,
         author_username,

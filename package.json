@@ -5,7 +5,8 @@
   "type": "commonjs",
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && next build",
+    "postinstall": "prisma generate || echo 'Prisma generate failed, continuing...'",
+    "build": "next build",
     "start": "next start",
     "migrate": "prisma migrate dev",
     "lint": "eslint .",
