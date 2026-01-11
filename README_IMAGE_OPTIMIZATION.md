@@ -103,10 +103,21 @@ import { LazySmartImg } from '@/components/SmartImg';
 
 ### Media Cards
 ```tsx
-import { NYTimesCard, YouTubeCard } from '@/components/content/MediaCard';
+import MediaCard from '@/components/content/MediaCard';
 
-<NYTimesCard data={nytimesData} />
-<YouTubeCard data={youtubeData} />
+<MediaCard
+  source="nytimes"
+  title={nytimesData.title}
+  imageUrl={nytimesData.media?.[0]?.["media-metadata"]?.[0]?.url}
+  url="https://www.nytimes.com"
+/>
+<MediaCard
+  source="youtube"
+  title={youtubeData.snippet.title}
+  imageUrl={youtubeData.snippet.thumbnails.maxres.url}
+  url="https://www.youtube.com"
+  channel="Channel Name"
+/>
 ```
 
 ## API Parameters
