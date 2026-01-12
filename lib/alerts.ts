@@ -394,7 +394,7 @@ export class AlertsDB {
     `;
     
     const result = await this.pool.query(query, [eventId, userId]);
-    return result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   }
 
   // Mark all alert events as read for a user
