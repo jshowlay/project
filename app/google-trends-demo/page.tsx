@@ -48,7 +48,7 @@ export default function GoogleTrendsDemoPage() {
       if (data.success) {
         setTrendingTopics(data.trends);
       } else {
-        setError(data.error || 'Failed to fetch trending topics');
+        setError('Failed to fetch trending topics');
       }
     } catch (err) {
       setError('Network error while fetching trending topics');
