@@ -70,7 +70,10 @@ export async function runIngestion(): Promise<IngestionResult> {
           errorMessage
         );
         
-        logger.error(`Failed to process ${source.constructor.name}`, { error: errorMessage });
+        logger.error({
+          msg: `Failed to process ${source.constructor.name}`,
+          error: errorMessage,
+        });
       }
     }
 
@@ -126,7 +129,11 @@ export async function runIngestion(): Promise<IngestionResult> {
     const duration = Date.now() - startTime;
     const errorMessage = error instanceof Error ? error.message : String(error);
     
-    logger.error('Data ingestion failed', { error: errorMessage, duration });
+    logger.error({
+      msg: 'Data ingestion failed',
+      error: errorMessage,
+      duration,
+    });
     
     return {
       success: false,
@@ -202,7 +209,10 @@ export async function runBatchIngestion(batchSize: number = 100): Promise<Ingest
           errorMessage
         );
         
-        logger.error(`Failed to process ${source.constructor.name}`, { error: errorMessage });
+        logger.error({
+          msg: `Failed to process ${source.constructor.name}`,
+          error: errorMessage,
+        });
       }
     }
 
@@ -215,7 +225,10 @@ export async function runBatchIngestion(batchSize: number = 100): Promise<Ingest
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         errors.push(`Materialized view refresh: ${errorMessage}`);
-        logger.error('Failed to refresh materialized view', { error: errorMessage });
+        logger.error({
+          msg: 'Failed to refresh materialized view',
+          error: errorMessage,
+        });
       }
     }
 
@@ -243,7 +256,11 @@ export async function runBatchIngestion(batchSize: number = 100): Promise<Ingest
     const duration = Date.now() - startTime;
     const errorMessage = error instanceof Error ? error.message : String(error);
     
-    logger.error('Batch data ingestion failed', { error: errorMessage, duration });
+    logger.error({
+      msg: 'Batch data ingestion failed',
+      error: errorMessage,
+      duration,
+    });
     
     return {
       success: false,
