@@ -291,5 +291,4 @@ export class Database {
 // Export singleton instance
 export const db = new Database();
 
-// Export types
-export type { TrendData };
+// TrendData is already exported above (line 30)
