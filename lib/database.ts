@@ -1,4 +1,4 @@
-import { Pool, PoolClient, QueryResult } from 'pg';
+import { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
 import { z } from 'zod';
 
 // Environment validation schema
@@ -112,7 +112,7 @@ export class Database {
   }
 
   // Execute query with type safety
-  async query<T = any>(text: string, params?: any[]): Promise<QueryResult<T>> {
+  async query<T extends QueryResultRow = any>(text: string, params?: any[]): Promise<QueryResult<T>> {
     const client = await this.pool.connect();
     try {
       return await client.query(text, params);
