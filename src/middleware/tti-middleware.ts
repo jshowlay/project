@@ -21,7 +21,7 @@ export function createTTIMiddleware(options: TTIMiddlewareOptions = {}) {
     includePaths = [],
   } = options;
 
-  return async function TTI middleware(request: NextRequest): Promise<NextResponse | undefined> {
+  return async function TTIMiddleware(request: NextRequest): Promise<NextResponse | undefined> {
     const startTime = Date.now();
     const pathname = request.nextUrl?.pathname || '';
 
