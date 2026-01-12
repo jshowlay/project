@@ -406,7 +406,7 @@ export class AlertsDB {
     `;
     
     const result = await this.pool.query(query, [userId]);
-    return result.rowCount;
+    return result.rowCount ?? 0;
   }
 
   // Get unread alert count for a user
