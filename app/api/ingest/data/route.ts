@@ -71,10 +71,10 @@ export async function GET(request: NextRequest) {
         processed: event.processed,
         createdAt: event.createdAt,
         data: {
-          title: event.rawData.title,
-          channelTitle: event.rawData.author,
-          url: event.rawData.url,
-          searchTerm: event.rawData.searchTerm,
+          title: event.rawData?.title || '',
+          channelTitle: event.rawData?.author || '',
+          url: event.rawData?.url || '',
+          searchTerm: event.rawData?.searchTerm || '',
         },
       })),
     });
