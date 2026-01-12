@@ -62,7 +62,7 @@ export default function HeaderDemo() {
             <div className="p-8 bg-gray-700 text-center text-gray-300">
               <p>Page content would go here</p>
               <p className="text-sm mt-2">
-                The header above shows the "Saved" navigation link and bookmark icon 
+                The header above shows the &quot;Saved&quot; navigation link and bookmark icon 
                 only when the user is authenticated.
               </p>
             </div>
@@ -77,7 +77,7 @@ export default function HeaderDemo() {
             <div className="bg-gray-700 p-4 rounded">
               <h3 className="font-semibold text-white mb-2">Navigation Link</h3>
               <ul className="text-sm text-gray-300 space-y-1">
-                <li>• "Saved" appears between "Trends" and "Alerts"</li>
+                <li>• &quot;Saved&quot; appears between &quot;Trends&quot; and &quot;Alerts&quot;</li>
                 <li>• Only visible when user is authenticated</li>
                 <li>• Links to `/saved` page</li>
                 <li>• Works on both desktop and mobile</li>
@@ -87,7 +87,7 @@ export default function HeaderDemo() {
             <div className="bg-gray-700 p-4 rounded">
               <h3 className="font-semibold text-white mb-2">Bookmark Icon</h3>
               <ul className="text-sm text-gray-300 space-y-1">
-                <li>• Shows in header's right section</li>
+                <li>• Shows in header&apos;s right section</li>
                 <li>• Only visible when user is authenticated</li>
                 <li>• Positioned before Login/Get Started buttons</li>
                 <li>• Touch-friendly on mobile</li>
@@ -97,8 +97,8 @@ export default function HeaderDemo() {
             <div className="bg-gray-700 p-4 rounded">
               <h3 className="font-semibold text-white mb-2">Count Badge</h3>
               <ul className="text-sm text-gray-300 space-y-1">
-                <li>• Only shows when count > 0</li>
-                <li>• Displays "99+" for counts over 99</li>
+                <li>• Only shows when count &gt; 0</li>
+                <li>• Displays &quot;99+&quot; for counts over 99</li>
                 <li>• Positioned at -right-1, -top-1</li>
                 <li>• Blue background with white text</li>
               </ul>

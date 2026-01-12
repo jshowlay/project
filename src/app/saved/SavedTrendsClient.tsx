@@ -122,7 +122,7 @@ export default function SavedTrendsClient() {
             No saved trends yet
           </h3>
           <p className="text-gray-600 mb-6">
-            Start saving trends you're interested in to see them here.
+            Start saving trends you&apos;re interested in to see them here.
           </p>
           <Button onClick={() => window.location.href = '/demo/trend-modal'}>
             Explore Trends
