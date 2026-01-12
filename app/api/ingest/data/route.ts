@@ -64,19 +64,22 @@ export async function GET(request: NextRequest) {
         cursorCount: cursors.length,
       },
       cursors,
-      events: events.map(event => ({
-        id: event.id,
-        externalId: event.externalId,
-        eventType: event.eventType,
-        processed: event.processed,
-        createdAt: event.createdAt,
-        data: {
-          title: event.rawData?.title || '',
-          channelTitle: event.rawData?.author || '',
-          url: event.rawData?.url || '',
-          searchTerm: event.rawData?.searchTerm || '',
-        },
-      })),
+      events: events.map(event => {
+        const rawData = event.rawData as any;
+        return {
+          id: event.id,
+          externalId: event.externalId,
+          eventType: event.eventType,
+          processed: event.processed,
+          createdAt: event.createdAt,
+          data: {
+            title: rawData?.title || '',
+            channelTitle: rawData?.author || '',
+            url: rawData?.url || '',
+            searchTerm: rawData?.searchTerm || '',
+          },
+        };
+      }),
     });
 
   } catch (error) {
