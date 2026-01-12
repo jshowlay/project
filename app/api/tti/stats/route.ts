@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
         data = await getRoutePerformance(route, days);
         break;
       case 'hourly_metrics':
-        data = await getHourlyMetrics(date ? new Date(date) : new Date(), metricName);
+        data = await getHourlyMetrics(date ? new Date(date) : new Date(), metricName || undefined);
         break;
       case 'session_summary':
         data = await getSessionSummary(days);
