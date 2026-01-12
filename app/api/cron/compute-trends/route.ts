@@ -239,7 +239,7 @@ export async function GET(request: NextRequest) {
       FROM trends
     `);
 
-    const stats = summary[0] || {
+    const stats = summary.rows[0] || {
       total_trends: 0,
       trends_with_ewma: 0,
       average_ewma: 0,
