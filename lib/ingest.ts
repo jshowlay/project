@@ -243,7 +243,8 @@ export async function runBatchIngestion(batchSize: number = 100): Promise<Ingest
       duration,
     };
 
-    logger.info('Batch data ingestion completed', {
+    logger.info({
+      msg: 'Batch data ingestion completed',
       success: result.success,
       totalItems: result.totalItems,
       sourcesProcessed: result.sourcesProcessed,
