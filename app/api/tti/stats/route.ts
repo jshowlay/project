@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
         data = await getSessionSummary(days);
         break;
       case 'aggregates':
-        data = await getAggregates(date ? new Date(date) : new Date(), metricName);
+        data = await getAggregates(date ? new Date(date) : new Date(), metricName || undefined);
         break;
       default:
         return NextResponse.json(
