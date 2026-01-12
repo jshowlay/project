@@ -36,7 +36,7 @@ pool.on('release', () => {
 });
 
 // Query helper with performance monitoring
-export async function query<T = any>(
+export async function query<T extends QueryResultRow = any>(
   text: string, 
   params?: any[], 
   client?: PoolClient
