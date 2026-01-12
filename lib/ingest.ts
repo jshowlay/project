@@ -115,7 +115,8 @@ export async function runIngestion(): Promise<IngestionResult> {
       duration,
     };
 
-    logger.info('Data ingestion completed', {
+    logger.info({
+      msg: 'Data ingestion completed',
       success: result.success,
       totalItems: result.totalItems,
       sourcesProcessed: result.sourcesProcessed,
