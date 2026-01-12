@@ -1,6 +1,6 @@
 import { Adapter, FetchOptions } from './types';
 import { TrendItem } from '../types/trends';
-import { query } from '../lib/db';
+import { query } from '../../lib/db';
 
 export const twitterAdapter: Adapter = {
   SOURCE_ID: 'twitter',
