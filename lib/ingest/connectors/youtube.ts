@@ -87,7 +87,7 @@ export class YouTubeConnector extends BaseSourceConnector {
 
     try {
       // Get the last cursor for pagination
-      const lastCursor = cursor || await this.getCursor('search');
+      const lastCursor = cursor || (await this.getCursor('search')) || undefined;
       
       // Search for videos for each term
       for (const searchTerm of this.searchTerms) {
