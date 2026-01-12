@@ -29,7 +29,7 @@ pool.on('acquire', (client: PoolClient) => {
   });
 });
 
-pool.on('release', (client: PoolClient) => {
+pool.on('release', () => {
   logger.debug({
     msg: 'Client released back to pool',
   });
