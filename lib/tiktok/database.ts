@@ -44,7 +44,7 @@ export class TikTokDatabase {
         ]
       );
 
-      return result.rowCount > 0;
+      return (result.rowCount ?? 0) > 0;
     } catch (error) {
       logger.error({
         msg: 'Failed to upsert TikTok post',
