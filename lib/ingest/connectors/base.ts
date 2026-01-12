@@ -168,9 +168,9 @@ export abstract class BaseSourceConnector {
 
 // Factory for creating connectors
 export class ConnectorFactory {
-  private static connectors = new Map<string, typeof BaseSourceConnector>();
+  private static connectors = new Map<string, new (source: string, ...args: any[]) => BaseSourceConnector>();
 
-  static register(source: string, connectorClass: typeof BaseSourceConnector): void {
+  static register(source: string, connectorClass: new (source: string, ...args: any[]) => BaseSourceConnector): void {
     this.connectors.set(source, connectorClass);
   }
 
