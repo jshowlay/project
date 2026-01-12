@@ -69,7 +69,7 @@ export default function GoogleTrendsDemoPage() {
       if (data.success) {
         setQueryResults(data.trends);
       } else {
-        setError(data.error || 'Failed to fetch query results');
+        setError('Failed to fetch query results');
       }
     } catch (err) {
       setError('Network error while fetching query results');
@@ -90,7 +90,7 @@ export default function GoogleTrendsDemoPage() {
       if (data.success) {
         setRelatedQueries(data.trends);
       } else {
-        setError(data.error || 'Failed to fetch related queries');
+        setError('Failed to fetch related queries');
       }
     } catch (err) {
       setError('Network error while fetching related queries');
