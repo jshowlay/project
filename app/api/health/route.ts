@@ -72,7 +72,8 @@ export async function GET(request: NextRequest) {
       },
     };
 
-    logger.info('Health check completed', {
+    logger.info({
+      msg: 'Health check completed',
       overallHealthy,
       duration,
       dbHealthy,
@@ -88,7 +89,11 @@ export async function GET(request: NextRequest) {
     const duration = Date.now() - startTime;
     const errorMessage = error instanceof Error ? error.message : String(error);
     
-    logger.error('Health check failed', { error: errorMessage, duration });
+    logger.error({
+      msg: 'Health check failed',
+      error: errorMessage,
+      duration,
+    });
     
     return NextResponse.json({
       status: 'unhealthy',
